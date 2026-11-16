@@ -12,7 +12,7 @@ namespace PetHospital.Web.Data;
 public static class SchemaUpgrade
 {
     /// <summary>Bảng mới của mô hình chi nhánh (tạo theo đúng script EF sinh ra)</summary>
-    private static readonly string[] NewTables = { "Branches", "UserBranches", "ProductStocks", "StockTransfers", "StockTransferLines" };
+    private static readonly string[] NewTables = { "Branches", "UserBranches", "ProductStocks", "StockTransfers", "StockTransferLines", "Languages", "TranslationKeys", "Translations" };
 
     /// <summary>Bảng nghiệp vụ được thêm cột BranchId</summary>
     private static readonly string[] ScopedTables =
@@ -65,6 +65,9 @@ public static class SchemaUpgrade
             }
             else await Exec(db, $"CREATE INDEX [IX_{t}_BranchId] ON [{t}] ([BranchId])");
         }
+
+        // Ngôn ngữ giao diện của người dùng
+        if (!await ColumnExistsAsync(db, "Users", "Language")) await Exec(db, "ALTER TABLE [Users] ADD [Language] nvarchar(20) NULL");
 
         // 4. Người dùng: quyền toàn chuỗi + gán chi nhánh mặc định
         if (!await ColumnExistsAsync(db, "Users", "AllBranches"))

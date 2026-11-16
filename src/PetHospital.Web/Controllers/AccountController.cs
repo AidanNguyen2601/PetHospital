@@ -44,6 +44,12 @@ public class AccountController : AppController
         await SignInAsync(user, vm.RememberMe, branchClaims);
         // Bắt đầu phiên ở chi nhánh mặc định
         Response.Cookies.Delete(BranchScope.Cookie);
+        // Ngôn ngữ: trình duyệt đã chọn (trên trang đăng nhập / lần trước) thì lưu vào hồ sơ;
+        // trình duyệt chưa chọn thì dùng ngôn ngữ đã lưu trong hồ sơ người dùng
+        if (Request.Cookies.ContainsKey(LangScope.Cookie) && LangScope.Current != null) user.Language = LangScope.Current.Code;
+        else if (Svc<Localizer>().Find(user.Language) is { IsActive: true } lang)
+            Response.Cookies.Append(LangScope.Cookie, lang.Code,
+                new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true, SameSite = SameSiteMode.Lax, HttpOnly = true });
         user.LastLoginAt = DateTime.Now;
         await Db.SaveChangesAsync();
         if (!string.IsNullOrEmpty(vm.ReturnUrl) && Url.IsLocalUrl(vm.ReturnUrl)) return Redirect(vm.ReturnUrl);

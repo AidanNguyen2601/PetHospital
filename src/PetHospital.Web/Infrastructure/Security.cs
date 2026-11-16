@@ -21,7 +21,7 @@ public static class AppRoles
     };
 
     public static string DisplayName(string? code) =>
-        All.FirstOrDefault(r => r.Code == code).Name ?? code ?? "";
+        L.T(All.FirstOrDefault(r => r.Code == code).Name ?? code ?? "");
 }
 
 /// <summary>Quyền chức năng. Ma trận vai trò – quyền cấu hình tại Quản trị › Vai trò &amp; quyền.</summary>

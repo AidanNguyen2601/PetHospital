@@ -67,6 +67,7 @@ dl.info dt { color: #64748b; font-weight: 500; }
 .quote-paper { max-width: 900px; background: #fff; }
 .quote-lines input, .quote-lines select { min-width: 70px; }
 .auth-body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0e2a2a, #0f9d8a); }
+.lang-switch-auth { position: fixed; top: 12px; right: 16px; display: flex; gap: 4px; z-index: 10; }
 .auth-card { width: 380px; background: #fff; border-radius: 14px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
 @media print { .sidebar, .topbar, .footer, .no-print { display: none !important; } .content { padding: 0; } .card { border: none; box-shadow: none; } }
 
@@ -409,3 +410,9 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .chart-bars .cb:hover { opacity: 1; }
 .chart-labels { display: flex; gap: 3px; font-size: .7rem; color: #94a3b8; }
 .chart-labels span { flex: 1; text-align: center; overflow: hidden; white-space: nowrap; }
+
+/* ---------- Ngôn ngữ & bản dịch ---------- */
+.tr-table td { vertical-align: top; }
+.tr-key { font-size: .85rem; white-space: pre-wrap; word-break: break-word; }
+.tr-table textarea { font-size: .85rem; min-height: 38px; }
+.tr-fallback { font-size: .75rem; color: var(--bs-secondary-color, #6c757d); }

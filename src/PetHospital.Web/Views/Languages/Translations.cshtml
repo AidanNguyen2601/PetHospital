@@ -1,0 +1,68 @@
+@model PagedList<TranslationRow>
+@{
+    var lang = (Language)ViewBag.Lang; var f = (ListFilter)ViewBag.Filter; string mode = ViewBag.Mode;
+    ViewData["Title"] = "Bản dịch " + lang.Name; ViewData["Icon"] = "globe";
+    var isSource = lang.Code == Localizer.Source;
+    var i = 0;
+}
+<ul class="nav nav-tabs mb-3">
+    @foreach (var (key, label) in new[] { ("all", "Tất cả"), ("missing", "Chưa dịch"), ("own", "Có bản dịch riêng"), ("custom", "Đã chỉnh sửa") })
+    {
+        if (isSource && key == "missing") { continue; }
+        <li class="nav-item"><a class="nav-link @(mode == key ? "active" : "")" asp-route-code="@lang.Code" asp-route-filter="@key" asp-route-q="@f.Q">@label</a></li>
+    }
+</ul>
+<div class="toolbar">
+    <form method="get" class="d-flex gap-2">
+        <input type="hidden" name="code" value="@lang.Code" /><input type="hidden" name="filter" value="@mode" />
+        <input name="Q" value="@f.Q" class="form-control form-control-sm" style="min-width:260px" placeholder="Tìm văn bản gốc hoặc bản dịch…" />
+        <button class="btn btn-sm btn-outline-secondary">Tìm</button>
+    </form>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Export" asp-route-code="@lang.Code">@Icon("download") Xuất CSV</a>
+        <form asp-action="Import" method="post" enctype="multipart/form-data" class="d-flex gap-1">
+            <input type="hidden" name="code" value="@lang.Code" />
+            <input type="file" name="file" accept=".csv,text/csv" class="form-control form-control-sm" style="max-width:220px" required />
+            <button class="btn btn-sm btn-outline-secondary">@Icon("upload") Nhập CSV</button>
+        </form>
+        <a class="btn btn-sm btn-light" asp-action="Index">Danh sách ngôn ngữ</a>
+    </div>
+</div>
+<div class="small text-muted mb-2">
+    @if (isSource) { <span>Tiếng Việt là văn bản gốc – chỉ nhập khi muốn đổi cách gọi (để trống = giữ nguyên văn bản gốc).</span> }
+    else { <span>Để trống = dùng bản kế thừa (nếu có) hoặc văn bản gốc tiếng Việt. Mẫu câu có <code>{0}</code>, <code>{1}</code> là chỗ điền tên / mã / số – giữ nguyên trong bản dịch.</span> }
+</div>
+<form asp-action="SaveTranslations" method="post">
+    <input type="hidden" name="code" value="@lang.Code" /><input type="hidden" name="q" value="@f.Q" />
+    <input type="hidden" name="filter" value="@mode" /><input type="hidden" name="page" value="@Model.Page" />
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 tr-table" data-no-grid>
+                <thead><tr><th style="width:42%">Văn bản gốc (tiếng Việt)</th><th>Bản dịch – @lang.Name</th></tr></thead>
+                <tbody>
+                    @foreach (var r in Model.Items)
+                    {
+                        <tr>
+                            <td>
+                                <div class="tr-key" data-no-translate>@r.Key</div>
+                                @if (r.IsCustom) { <span class="badge bg-warning-subtle text-warning-emphasis">đã sửa</span> }
+                            </td>
+                            <td>
+                                <input type="hidden" name="rows[@i].Key" value="@r.Key" />
+                                <input type="hidden" name="rows[@i].Original" value="@r.Value" />
+                                <textarea name="rows[@i].Value" class="form-control form-control-sm" rows="@(r.Key.Length > 80 ? 3 : 1)" placeholder="@(r.Fallback ?? (isSource ? r.Key : ""))">@r.Value</textarea>
+                                @if (!string.IsNullOrEmpty(r.Fallback) && string.IsNullOrEmpty(r.Value)) { <div class="tr-fallback">Kế thừa: @r.Fallback</div> }
+                            </td>
+                        </tr>
+                        i++;
+                    }
+                    @if (Model.Items.Count == 0) { <tr><td colspan="2" class="text-muted p-3">Không có câu nào.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white d-flex flex-wrap gap-2 align-items-center">
+            <button class="btn btn-primary">@Icon("check") Lưu trang này</button>
+            <div class="ms-auto"><partial name="_Pager" model="Model" /></div>
+        </div>
+    </div>
+</form>

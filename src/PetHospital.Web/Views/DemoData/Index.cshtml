@@ -59,7 +59,7 @@
             </div>
             @if (first.HasValue)
             {
-                <div class="card-footer bg-white small text-muted">Phiếu khám từ @first.Value.ToString("dd/MM/yyyy") đến @last!.Value.ToString("dd/MM/yyyy")</div>
+                <div class="card-footer bg-white small text-muted">Phiếu khám từ @first.Value.ToDate() đến @last!.Value.ToDate()</div>
             }
         </div>
     </div>

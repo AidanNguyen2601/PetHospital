@@ -16,7 +16,7 @@
         <div class="text-center">ĐT: @await s.GetAsync(SettingsService.ClinicPhone)</div>
         <hr class="my-1" />
         <div class="text-center fw-bold">HÓA ĐƠN BÁN HÀNG</div>
-        <div>Số: @i.Code · @((i.IssuedAt ?? i.Date).ToString("dd/MM/yyyy HH:mm"))</div>
+        <div>Số: @i.Code · @((i.IssuedAt ?? i.Date).ToDateTime())</div>
         <div>KH: @(i.Owner?.FullName ?? i.CustomerName) @i.Owner?.Phone</div>
         @if (i.Pet != null) { <div>Thú cưng: @i.Pet.Name</div> }
         <hr class="my-1" />
@@ -43,7 +43,7 @@ else
 {
     <partial name="_PrintHeader" model="s" />
     <h4 class="text-center fw-bold my-2">HÓA ĐƠN BÁN HÀNG – DỊCH VỤ</h4>
-    <div class="text-center small mb-3">Số: @i.Code · Ngày @((i.IssuedAt ?? i.Date).ToString("dd/MM/yyyy HH:mm")) @(i.Status == InvoiceStatus.Cancelled ? "· ĐÃ HỦY" : "")</div>
+    <div class="text-center small mb-3">Số: @i.Code · Ngày @((i.IssuedAt ?? i.Date).ToDateTime()) @(i.Status == InvoiceStatus.Cancelled ? "· ĐÃ HỦY" : "")</div>
     <table class="table table-sm table-borderless mb-2">
         <tr><td style="width:18%">Khách hàng:</td><td><b>@(i.Owner?.FullName ?? i.CustomerName)</b></td><td style="width:15%">Điện thoại:</td><td>@i.Owner?.Phone</td></tr>
         <tr><td>Địa chỉ:</td><td>@i.Owner?.Address</td><td>Thú cưng:</td><td>@i.Pet?.Name</td></tr>

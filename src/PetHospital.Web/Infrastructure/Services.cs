@@ -42,6 +42,8 @@ public class SettingsService
     public const string VaccineRemindDays = "Remind.VaccineDays";
     public const string ExpiryWarnDays = "Stock.ExpiryWarnDays";
     public const string ShareCustomers = "Chain.ShareCustomers";
+    /// <summary>Ngôn ngữ giao diện mặc định (quản lý tại Quản trị › Ngôn ngữ)</summary>
+    public const string DefaultLanguage = "Language.Default";
 
     public static readonly (string Key, string Label, string Default)[] All =
     {
@@ -145,20 +147,20 @@ public class Lookups
         var busy = await _db.Admissions.AsNoTracking().Where(a => a.Status == AdmissionStatus.Active && a.Id != exceptAdmissionId && a.CageId != null)
             .Select(a => a.CageId!.Value).ToListAsync();
         var cages = await _db.Cages.AsNoTracking().Where(c => c.IsActive || c.Id == selected).OrderBy(c => c.Code).ToListAsync();
-        return cages.Select(c => new SelectListItem(c.Code + " – " + c.Name + (busy.Contains(c.Id) ? " (đang có thú)" : ""), c.Id.ToString(), c.Id == selected)
+        return cages.Select(c => new SelectListItem(c.Code + " – " + c.Name + (busy.Contains(c.Id) ? " (" + L.T("đang có thú") + ")" : ""), c.Id.ToString(), c.Id == selected)
             { Disabled = busy.Contains(c.Id) && c.Id != selected }).ToList();
     }
 
     public async Task<List<SelectListItem>> PetsOfOwnerAsync(int? ownerId, int? selected = null)
     {
-        if (ownerId == null) return new List<SelectListItem> { new("-- Chọn khách hàng trước --", "") };
+        if (ownerId == null) return new List<SelectListItem> { new(L.T("-- Chọn khách hàng trước --"), "") };
         return WithBlank(await _db.Pets.AsNoTracking().Where(p => p.OwnerId == ownerId && !p.IsDeceased).OrderBy(p => p.Name)
             .Select(p => new SelectListItem(p.Name + (p.Species != null ? " (" + p.Species.Name + ")" : ""), p.Id.ToString(), p.Id == selected)).ToListAsync(), "-- Chọn thú cưng --");
     }
 
     private static List<SelectListItem> WithBlank(List<SelectListItem> list, string? blank)
     {
-        if (blank != null) list.Insert(0, new SelectListItem(blank, ""));
+        if (blank != null) list.Insert(0, new SelectListItem(L.T(blank), ""));
         return list;
     }
 }

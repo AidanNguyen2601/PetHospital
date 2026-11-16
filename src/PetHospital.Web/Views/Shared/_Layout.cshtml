@@ -1,5 +1,6 @@
 @using Microsoft.EntityFrameworkCore
 @inject PetHospital.Web.Data.PetDbContext Db
+@inject PetHospital.Web.Infrastructure.Localizer Loc
 @{
     var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
     var act = ViewContext.RouteData.Values["action"]?.ToString();
@@ -13,11 +14,11 @@
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
 }
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="@(LangScope.Current?.HtmlLang ?? "vi")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PetCare</title>
+    <title>@Tx(ViewData["Title"] as string) - PetCare</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <script>
@@ -133,6 +134,7 @@
                         @if (Me.Has(Perm.System))
                         {
                             <a class="@Active("Branches")" asp-controller="Branches" asp-action="Index">@Icon("building")<span>Chi nhánh</span></a>
+                            <a class="@Active("Languages")" asp-controller="Languages" asp-action="Index">@Icon("globe")<span>Ngôn ngữ &amp; bản dịch</span></a>
                             <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin chuỗi                             <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin phòng khám</span></a> tham số</span></a>
                             <a class="@Active("Audit")" asp-controller="Audit" asp-action="Index">@Icon("history")<span>Nhật ký hệ thống</span></a>
                             <a class="@Active("DemoData")" asp-controller="DemoData" asp-action="Index">@Icon("flow")<span>Dữ liệu mô phỏng</span></a>
@@ -163,7 +165,7 @@
         <header class="topbar">
             <div class="d-flex align-items-center gap-2 min-w-0">
                 <button type="button" class="btn btn-light btn-sm menu-btn" data-sidebar-toggle title="Ẩn / hiện menu" aria-label="Ẩn / hiện menu" aria-controls="sidebar">@Icon("menu")</button>
-                <h1 class="page-title">@Icon(ViewData["Icon"] as string ?? "paw", "ico-title")<span>@ViewData["Title"]</span></h1>
+                <h1 class="page-title">@Icon(ViewData["Icon"] as string ?? "paw", "ico-title")<span>@Tx(ViewData["Title"] as string)</span></h1>
             </div>
             <div class="d-flex align-items-center gap-2">
                 @if (Me.Has(Perm.CustomerView))
@@ -216,6 +218,15 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><span class="dropdown-item-text small text-muted">@roleNames</span></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@Icon("key")Đổi mật khẩu</a></li>
+                        @if (Loc.ActiveLanguages.Count() > 1)
+                        {
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><span class="dropdown-item-text small text-muted">@Icon("globe") Ngôn ngữ</span></li>
+                            @foreach (var lg in Loc.ActiveLanguages)
+                            {
+                                <li><form asp-controller="Languages" asp-action="Switch" method="post"><input type="hidden" name="code" value="@lg.Code" /><input type="hidden" name="returnUrl" value="@returnUrl" /><button class="dropdown-item @(lg.Code == LangScope.Current?.Code ? "active" : "")">@lg.Name</button></form></li>
+                            }
+                        }
                         <li><hr class="dropdown-divider" /></li>
                         <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">@Icon("logout")Đăng xuất</button></form></li>
                     </ul>
@@ -223,8 +234,8 @@
             </div>
         </header>
         <main class="content">
-            @if (TempData["Success"] is string ok) { <div class="alert alert-success alert-dismissible fade show">@ok<button class="btn-close" data-bs-dismiss="alert"></button></div> }
-            @if (TempData["Error"] is string err) { <div class="alert alert-danger alert-dismissible fade show">@err<button class="btn-close" data-bs-dismiss="alert"></button></div> }
+            @if (TempData["Success"] is string ok) { <div class="alert alert-success alert-dismissible fade show">@Tx(ok)<button class="btn-close" data-bs-dismiss="alert"></button></div> }
+            @if (TempData["Error"] is string err) { <div class="alert alert-danger alert-dismissible fade show">@Tx(err)<button class="btn-close" data-bs-dismiss="alert"></button></div> }
             @RenderBody()
         </main>
         <footer class="footer">&copy; @DateTime.Now.Year PetCare – Quản lý phòng khám thú y — ASP.NET Core 8 MVC + SQL Server 2022</footer>
@@ -232,6 +243,7 @@
 </div>
 <script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<partial name="_LangScript" />
 <script src="~/js/site.js" asp-append-version="true"></script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>

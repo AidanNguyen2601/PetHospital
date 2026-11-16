@@ -37,6 +37,10 @@ public class AppUser
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? LastLoginAt { get; set; }
 
+    /// <summary>Ngôn ngữ giao diện của người dùng (null = mặc định hệ thống)</summary>
+    [StringLength(20)]
+    public string? Language { get; set; }
+
     /// <summary>Làm việc ở mọi chi nhánh (quản lý chuỗi). Quản trị hệ thống luôn được xem mọi chi nhánh.</summary>
     public bool AllBranches { get; set; }
 
@@ -47,6 +51,59 @@ public class AppUser
         Roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     public string DisplayName => string.IsNullOrWhiteSpace(Title) ? FullName : $"{Title} {FullName}";
+}
+
+/// <summary>
+/// Ngôn ngữ giao diện. Văn bản gốc của phần mềm là tiếng Việt (khóa dịch); mỗi ngôn ngữ có bản dịch riêng sửa được,
+/// ngôn ngữ vùng miền (VD: en-GB, vi-Nam) kế thừa ngôn ngữ gốc (FallbackCode) và chỉ ghi đè những câu khác.
+/// </summary>
+public class Language
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "Nhập mã ngôn ngữ"), StringLength(20), RegularExpression("^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$", ErrorMessage = "Mã dạng vi, en, ko, en-GB, vi-Nam…"),
+     Display(Name = "Mã ngôn ngữ")]
+    public string Code { get; set; } = "";
+
+    [Required(ErrorMessage = "Nhập tên ngôn ngữ"), StringLength(100), Display(Name = "Tên hiển thị")]
+    public string Name { get; set; } = "";
+
+    /// <summary>Văn hóa định dạng số / tiền (vi-VN, en-US, ko-KR…)</summary>
+    [Required, StringLength(20), Display(Name = "Định dạng số (culture)")]
+    public string Culture { get; set; } = "vi-VN";
+
+    [Required, StringLength(20), Display(Name = "Định dạng ngày")]
+    public string DateFormat { get; set; } = "dd/MM/yyyy";
+
+    /// <summary>Ngôn ngữ dự phòng khi chưa có bản dịch (ngôn ngữ vùng miền kế thừa ngôn ngữ gốc)</summary>
+    [StringLength(20), Display(Name = "Kế thừa từ ngôn ngữ")]
+    public string? FallbackCode { get; set; }
+
+    [Display(Name = "Thứ tự")]
+    public int SortOrder { get; set; }
+
+    [Display(Name = "Đang sử dụng")]
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>Văn bản cần dịch (văn bản gốc tiếng Việt), tự ghi nhận khi giao diện hiển thị</summary>
+public class TranslationKey
+{
+    public int Id { get; set; }
+    [Required, StringLength(800)] public string Key { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>Bản dịch của một văn bản cho một ngôn ngữ</summary>
+public class Translation
+{
+    public int Id { get; set; }
+    [Required, StringLength(20)] public string LanguageCode { get; set; } = "";
+    [Required, StringLength(800)] public string Key { get; set; } = "";
+    [StringLength(2000)] public string? Value { get; set; }
+    /// <summary>Đã được người dùng chỉnh sửa (không bị ghi đè khi cập nhật bản dịch có sẵn)</summary>
+    public bool IsCustom { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }
 
 /// <summary>Người dùng – chi nhánh được làm việc</summary>

@@ -46,7 +46,7 @@
 else
 {
     <div class="card">
-        <div class="card-header">@Dow(day), @day.ToString("dd/MM/yyyy") – @items.Count(a => a.Status != AppointmentStatus.Cancelled) lịch hẹn</div>
+        <div class="card-header">@Dow(day), @day.ToDate() – @items.Count(a => a.Status != AppointmentStatus.Cancelled) lịch hẹn</div>
         <div class="table-responsive">
             <table class="table table-hover mb-0" data-no-grid>
                 <thead><tr><th>Giờ</th><th>Thú cưng</th><th>Chủ nuôi</th><th>Dịch vụ / lý do</th><th>Bác sĩ</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>

@@ -1,10 +1,10 @@
 @* Bố cục in biểu mẫu (biên bản, phiếu, báo cáo) – dùng "In / Lưu PDF" của trình duyệt *@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="@(LangScope.Current?.HtmlLang ?? "vi")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"]</title>
+    <title>@Tx(ViewData["Title"] as string)</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/print.css" asp-append-version="true" />
@@ -12,12 +12,13 @@
 <body class="print-body">
     <div class="print-toolbar no-print">
         <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">@Icon("print") In / Lưu PDF</button>
-        <button type="button" class="btn btn-light btn-sm" onclick="history.length > 1 ? history.back() : window.close()">Quay lại</button>
+        <button type="button" class="btn btn-light btn-sm" onclick="history.length &gt; 1 ? history.back() : window.close()">Quay lại</button>
         <span class="small text-muted ms-2">Mẹo: chọn máy in "Lưu thành PDF" (Save as PDF) để xuất file PDF.</span>
     </div>
     <div class="paper">
         @RenderBody()
     </div>
+    <partial name="_LangScript" />
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
     @if (Context.Request.Query["auto"] == "1")

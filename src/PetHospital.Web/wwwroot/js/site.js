@@ -1,3 +1,6 @@
+// Bản dịch chuỗi giao diện (window.PET_I18N do layout chèn vào)
+window.petT = window.petT || function (s) { return (window.PET_I18N && window.PET_I18N[s]) || s; };
+
 // Xác nhận trước các thao tác quan trọng: <form data-confirm="...">
 document.addEventListener('submit', function (e) {
     const msg = e.target.getAttribute('data-confirm');
@@ -118,8 +121,8 @@ document.addEventListener('submit', function (e) {
 (function () {
     const en = document.documentElement.lang === 'en';
     const TXT = {
-        reset: en ? 'Reset column layout' : 'Khôi phục bố cục cột',
-        hint: en ? 'Drag to move the column · drag the right edge to resize' : 'Kéo để đổi vị trí cột · kéo mép phải để đổi độ rộng'
+        reset: petT('Khôi phục bố cục cột'),
+        hint: petT('Kéo để đổi vị trí cột · kéo mép phải để đổi độ rộng')
     };
     const store = {
         get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
@@ -290,7 +293,7 @@ document.addEventListener('submit', function (e) {
             const files = Array.from(input.files || []);
             const big = files.filter(f => max && f.size > max);
             if (big.length) {
-                text.textContent = (en ? 'Too large: ' : 'Vượt dung lượng: ') + big.map(f => f.name + ' (' + fmt(f.size) + ')').join(', ');
+                text.textContent = petT('Vượt dung lượng:') + ' ' + big.map(f => f.name + ' (' + fmt(f.size) + ')').join(', ');
                 drop.classList.add('att-error'); btn.disabled = true; return;
             }
             drop.classList.remove('att-error');
@@ -349,9 +352,9 @@ document.addEventListener('click', function (e) {
         }
         function loadPets(ownerId, selected) {
             if (!petSel) return;
-            petSel.innerHTML = '<option value="">Đang tải…</option>';
+            petSel.innerHTML = '<option value="">' + petT('Đang tải…') + '</option>';
             fetch('/Owners/Pets/' + ownerId).then(r => r.json()).then(list => {
-                petSel.innerHTML = '<option value="">-- Chọn thú cưng --</option>';
+                petSel.innerHTML = '<option value="">' + petT('-- Chọn thú cưng --') + '</option>';
                 list.forEach(p => {
                     const o = document.createElement('option');
                     o.value = p.id; o.textContent = p.text;
@@ -402,7 +405,7 @@ document.addEventListener('click', function (e) {
         if (desc && opt.value) desc.value = opt.dataset.name || opt.textContent.trim();
         if (usage && !usage.value && opt.dataset.usage) usage.value = opt.dataset.usage;
         const stock = tr.querySelector('.stock-hint');
-        if (stock) stock.textContent = opt.dataset.stock !== undefined ? 'Tồn: ' + opt.dataset.stock : '';
+        if (stock) stock.textContent = opt.dataset.stock !== undefined ? petT('Tồn:') + ' ' + opt.dataset.stock : '';
         document.dispatchEvent(new CustomEvent('rows:changed'));
     });
 

@@ -54,10 +54,17 @@ builder.Services.AddControllersWithViews(o =>
     o.Conventions.Add(new RequireLoginConvention());
     // Chỉ các trường gắn [Required] mới bắt buộc
     o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
-    o.ModelBindingMessageProvider.SetValueMustBeANumberAccessor(f => $"{f} phải là số.");
-    o.ModelBindingMessageProvider.SetAttemptedValueIsInvalidAccessor((v, f) => $"Giá trị \"{v}\" không hợp lệ cho {f}.");
-    o.ModelBindingMessageProvider.SetValueMustNotBeNullAccessor(f => $"{f} không được để trống.");
-});
+    o.ModelBindingMessageProvider.SetValueMustBeANumberAccessor(f => L.T("{0} phải là số.", f));
+    o.ModelBindingMessageProvider.SetAttemptedValueIsInvalidAccessor((v, f) => L.T("Giá trị \"{0}\" không hợp lệ cho {1}.", v, f));
+    o.ModelBindingMessageProvider.SetValueMustNotBeNullAccessor(f => L.T("{0} không được để trống.", f));
+})
+// Tên trường (Display) và thông báo kiểm tra dữ liệu dịch theo ngôn ngữ giao diện
+.AddDataAnnotationsLocalization(o => o.DataAnnotationLocalizerProvider = (_, factory) => factory.Create(typeof(Program)));
+
+// ---------- Đa ngôn ngữ (bản dịch lưu trong database, sửa tại Quản trị › Ngôn ngữ) ----------
+builder.Services.AddSingleton<Localizer>();
+builder.Services.AddSingleton<Microsoft.Extensions.Localization.IStringLocalizerFactory, DbStringLocalizerFactory>();
+builder.Services.AddHostedService<TranslationKeyCollector>();
 
 // Lưu khóa mã hóa cookie ra volume để khởi động lại container không bị đăng xuất
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
@@ -104,6 +111,7 @@ app.Use(async (ctx, next) =>
     await next();
 });
 app.UseStaticFiles();
+app.UseMiddleware<LanguageMiddleware>();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -120,6 +128,10 @@ app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Inde
         try
         {
             await DbSeeder.SeedAsync(app.Services, seedSample);
+            // Ngôn ngữ cài sẵn + bản dịch i18n/*.json (không ghi đè câu đã sửa), rồi nạp vào bộ nhớ
+            using (var scope = app.Services.CreateScope())
+                await Localizer.SeedAsync(scope.ServiceProvider.GetRequiredService<PetDbContext>(), app.Environment.ContentRootPath, app.Logger);
+            await app.Services.GetRequiredService<Localizer>().ReloadAsync();
             break;
         }
         catch (Exception ex) when (attempt < retries)

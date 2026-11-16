@@ -39,6 +39,7 @@ Chạy bằng dòng lệnh: `docker exec pet-web dotnet PetHospital.Web.dll --si
 | Nhóm | Chức năng |
 |---|---|
 | Chuỗi chi nhánh | Nhiều chi nhánh trên một hệ thống: chọn chi nhánh làm việc ở góc trên, dữ liệu nghiệp vụ (lịch hẹn, khám, tiêm, chuồng, nội trú, hóa đơn, kho) tách theo chi nhánh; bảng giá, danh mục thuốc, loài – giống dùng chung; khách hàng & hồ sơ thú cưng dùng chung hoặc riêng (cài đặt); người dùng gán một / nhiều / mọi chi nhánh; số chứng từ có tiền tố mã chi nhánh; chuyển kho giữa chi nhánh; báo cáo theo chi nhánh hoặc toàn chuỗi, so sánh chi nhánh |
+| Đa ngôn ngữ | Tiếng Việt, English, 한국어 cài sẵn; chọn ngôn ngữ trên trang đăng nhập / menu tài khoản; định dạng số, ngày theo ngôn ngữ; quản trị sửa bản dịch trên giao diện, xuất / nhập CSV, tạo ngôn ngữ vùng miền kế thừa ngôn ngữ gốc (VD `vi-Nam`, `en-GB`); câu giao diện chưa dịch tự được ghi nhận |
 | Bảng điều khiển | Lịch hẹn hôm nay, hàng chờ khám, đang nội trú, tiền thu hôm nay / tháng, công nợ, biểu đồ 30 ngày, doanh thu theo nhóm, nhắc tiêm, cảnh báo hết hàng / sắp hết hạn |
 | Khách hàng & thú cưng | Hồ sơ chủ nuôi (SĐT không trùng, công nợ, tổng chi tiêu), hồ sơ thú cưng (loài – giống, giới tính, tuổi, cân nặng, vi mạch, triệt sản, dị ứng – cảnh báo đỏ khi khám), lịch sử khám, sổ tiêm, biểu đồ cân nặng, in bệnh án; tìm nhanh theo SĐT / mã / vi mạch |
 | Lịch hẹn | Xem theo ngày / tuần, lọc bác sĩ, cảnh báo trùng lịch bác sĩ, xác nhận / không đến / hủy, "Khách đến" tạo phiếu khám vào hàng chờ |
@@ -58,7 +59,8 @@ PetHospital/
 ├─ src/PetHospital.Web/
 │  ├─ Models/          Thực thể: khách hàng, thú cưng, lịch hẹn, phiếu khám, tiêm phòng, nội trú, kho, hóa đơn
 │  ├─ Data/            PetDbContext (quan hệ khai báo tường minh, nhật ký tự động), DbSeeder, SampleData
-│  ├─ Infrastructure/  Phân quyền, đánh số chứng từ, StockService (FEFO), InvoiceService, Lookups, Excel
+│  ├─ Infrastructure/  Phân quyền, chi nhánh, đa ngôn ngữ, đánh số chứng từ, StockService (FEFO), InvoiceService, Lookups, Excel
+│  ├─ i18n/            Bản dịch có sẵn (en.*.json, ko.*.json) – nạp vào database lần đầu
 │  ├─ Controllers/     MVC controllers
 │  ├─ Views/           Razor views (Bootstrap 5, responsive)
 │  └─ wwwroot/         css, js, lib (bootstrap, jquery)
@@ -73,6 +75,12 @@ PetHospital/
   Truy vấn cần dữ liệu toàn chuỗi (lịch sử bệnh án, kiểm tra trước khi xóa, đánh số chứng từ) dùng `IgnoreQueryFilters()`. Tồn kho lưu ở `ProductStocks` (chi nhánh × mặt hàng).
 - **Nâng cấp database cũ** (một phòng khám → chuỗi): `Data/SchemaUpgrade.cs` chạy mỗi lần khởi động, chỉ thêm bảng / cột còn thiếu. Dữ liệu cũ gán cho chi nhánh mặc định `CN01`,
   tồn kho chung chuyển sang kho CN01 (cột `Products.Stock` cũ giữ lại làm bản lưu). Người dùng phải đăng nhập lại một lần để nhận quyền chi nhánh. **Sao lưu PET_DB trước khi nâng cấp.**
+- **Đa ngôn ngữ** (`Infrastructure/Localization.cs`, `LocalizedViews.cs`): văn bản gốc trong code / view là tiếng Việt và chính là khóa dịch.
+  Mọi view kế thừa `LocalizedRazorPage` → phần HTML tĩnh (chữ, `title`, `placeholder`, `data-confirm`…) tự dịch khi hiển thị; chuỗi in bằng `@(...)` chỉ dịch khi khớp đúng câu đã có.
+  Trong C# dùng `L.T("…")` / `L.T("… {0}", x)`; tên trường `[Display]`, thông báo `ErrorMessage`, tên enum dịch tự động; thông báo `TempData` khớp theo mẫu câu `{0}`.
+  Bản dịch lưu bảng `Languages`, `Translations`, `TranslationKeys` (khóa so sánh nhị phân); bản dịch có sẵn ở `i18n/{mã}.*.json` nạp khi khởi động
+  (thêm câu mới, cập nhật câu chưa sửa, không ghi đè câu `IsCustom`). Câu chưa dịch tự ghi vào `TranslationKeys` mỗi 20 giây.
+  Thêm câu giao diện mới: viết tiếng Việt như bình thường rồi bổ sung bản dịch vào `i18n/en.*.json`, `i18n/ko.*.json` (hoặc dịch trên giao diện quản trị).
 - Database tạo bằng `EnsureCreated` (giống CRM / EAM). Khóa ngoại mặc định `NO ACTION`; chỉ dòng chi tiết (dòng hóa đơn, dòng phiếu nhập, dịch vụ / thuốc của phiếu khám, ghi chép nội trú) xóa theo chứng từ cha.
 - Tiền tệ `decimal(18,2)`, số lượng / cân nặng `decimal(18,3)`.
 - Kho trừ khi **phát hành hóa đơn** (không trừ khi kê đơn) để tránh lệch tồn khi khách không lấy thuốc; hủy hóa đơn hoàn nhập đúng lô.

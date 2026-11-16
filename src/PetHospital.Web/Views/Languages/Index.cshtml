@@ -1,0 +1,58 @@
+@model List<Language>
+@{
+    ViewData["Title"] = "Ngôn ngữ & bản dịch"; ViewData["Icon"] = "globe";
+    int total = ViewBag.TotalKeys; string def = ViewBag.Default;
+    var own = (Dictionary<string, (int C, int Custom)>)ViewBag.Own;
+    var names = Model.ToDictionary(l => l.Code, l => l.Name);
+}
+<div class="toolbar">
+    <div class="small text-muted">Văn bản gốc của phần mềm là tiếng Việt · <b>@total</b> câu cần dịch (tự bổ sung khi giao diện hiển thị câu mới)</div>
+    <a class="btn btn-sm btn-primary ms-auto" asp-action="Create">@Icon("plus") Thêm ngôn ngữ / vùng miền</a>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Mã</th><th>Tên hiển thị</th><th>Kế thừa từ</th><th>Định dạng</th><th class="text-end">Đã dịch</th><th class="text-end">Đã sửa</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var l in Model)
+                {
+                    var o = own.GetValueOrDefault(l.Code);
+                    var pct = total == 0 ? 0 : Math.Min(100, o.C * 100 / total);
+                    <tr class="@(l.IsActive ? "" : "text-muted")">
+                        <td class="fw-semibold">@l.Code</td>
+                        <td>@l.Name @if (l.Code == def) { <span class="badge bg-primary">Mặc định</span> } @if (l.Code == Localizer.Source) { <span class="badge bg-light text-dark border">Gốc</span> }</td>
+                        <td class="small">@(l.FallbackCode == null ? "" : names.GetValueOrDefault(l.FallbackCode, l.FallbackCode))</td>
+                        <td class="small">@l.Culture · @l.DateFormat · @(1234567.5m.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo(l.Culture))) · @DateTime.Today.ToString(l.DateFormat, System.Globalization.CultureInfo.InvariantCulture)</td>
+                        <td class="text-end">
+                            @if (l.Code == Localizer.Source) { <span class="small text-muted">–</span> }
+                            else
+                            {
+                                <span>@o.C</span>
+                                <div class="progress mt-1" style="height:4px;width:90px;margin-left:auto"><div class="progress-bar" style="width:@(pct)%"></div></div>
+                            }
+                        </td>
+                        <td class="text-end">@o.Custom</td>
+                        <td>@if (l.IsActive) { <span class="badge bg-success">Đang dùng</span> } else { <span class="badge bg-secondary">Ngừng</span> }</td>
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-sm btn-outline-primary" asp-action="Translations" asp-route-code="@l.Code">@Icon("edit") Bản dịch</a>
+                            <a class="btn btn-sm btn-light" asp-action="Edit" asp-route-id="@l.Id">Sửa</a>
+                            @if (l.Code != def && l.IsActive)
+                            {
+                                <form asp-action="SetDefault" method="post" class="d-inline"><input type="hidden" name="code" value="@l.Code" /><button class="btn btn-sm btn-link">Đặt mặc định</button></form>
+                            }
+                            @if (l.Code != Localizer.Source && l.Code != def)
+                            {
+                                <form asp-action="Delete" asp-route-id="@l.Id" method="post" class="d-inline" data-confirm="Xóa ngôn ngữ này và toàn bộ bản dịch?"><button class="btn btn-sm btn-link text-danger">Xóa</button></form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="small text-muted mt-3">
+    Bản dịch tiếng Anh, tiếng Hàn được cài sẵn và có thể chỉnh sửa. Câu đã sửa được giữ nguyên khi cập nhật phần mềm.
+    Để dùng cách gọi riêng theo vùng miền, thêm ngôn ngữ mới (VD: <code>vi-Nam</code> kế thừa Tiếng Việt, <code>en-GB</code> kế thừa English) rồi chỉ sửa những câu khác biệt.
+    Người dùng chọn ngôn ngữ ở menu tài khoản (góc trên bên phải) hoặc trên trang đăng nhập.
+</div>

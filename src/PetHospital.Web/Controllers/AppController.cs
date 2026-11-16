@@ -68,6 +68,6 @@ public abstract class AppController : Controller
 
     /// <summary>Trả file Excel</summary>
     protected FileContentResult Excel(string fileName, string sheet, IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<object?>> rows) =>
-        File(Spreadsheet.ToXlsx(sheet, headers, rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        File(Spreadsheet.ToXlsx(L.Text(sheet), headers.Select(L.Text).ToList(), rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"{fileName}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
 }

@@ -61,6 +61,9 @@ public class PetDbContext : DbContext
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<Language> Languages => Set<Language>();
+    public DbSet<TranslationKey> TranslationKeys => Set<TranslationKey>();
+    public DbSet<Translation> Translations => Set<Translation>();
 
     // ----- Khách hàng & thú cưng -----
     public DbSet<Owner> Owners => Set<Owner>();
@@ -111,6 +114,12 @@ public class PetDbContext : DbContext
         b.Entity<AuditLog>().HasIndex(x => new { x.Entity, x.EntityId });
         b.Entity<AuditLog>().HasIndex(x => x.At);
         b.Entity<SystemSetting>().HasIndex(x => x.Key).IsUnique();
+        b.Entity<Language>().HasIndex(x => x.Code).IsUnique();
+        // Khóa dịch so sánh chính xác (phân biệt hoa / thường, dấu): "Đặt lịch" khác "đặt lịch"
+        b.Entity<TranslationKey>().Property(x => x.Key).UseCollation("Latin1_General_100_BIN2");
+        b.Entity<Translation>().Property(x => x.Key).UseCollation("Latin1_General_100_BIN2");
+        b.Entity<TranslationKey>().HasIndex(x => x.Key).IsUnique();
+        b.Entity<Translation>().HasIndex(x => new { x.LanguageCode, x.Key }).IsUnique();
 
         b.Entity<Owner>().HasIndex(x => x.Code).IsUnique();
         b.Entity<Owner>().HasIndex(x => x.Phone);

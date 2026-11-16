@@ -8,6 +8,19 @@
 - **Khách hàng & hồ sơ thú cưng**: dùng chung hoặc riêng từng chi nhánh tùy cài đặt (*Quản trị › Thông tin chuỗi & tham số*).
   Khi dùng chung, hồ sơ thú cưng hiện lượt khám, mũi tiêm ở **mọi chi nhánh** (gắn nhãn tên chi nhánh); phiếu khám của chi nhánh khác **chỉ xem**.
 
+## Ngôn ngữ giao diện (Tiếng Việt · English · 한국어)
+- **Chọn ngôn ngữ**: trên trang đăng nhập (nút ở góc trên phải) hoặc menu tài khoản › *Ngôn ngữ*. Lựa chọn được lưu theo trình duyệt và hồ sơ người dùng.
+- Số tiền, ngày tháng hiển thị theo định dạng của ngôn ngữ (VD tiếng Hàn: `2026-11-16`).
+- Dữ liệu do người dùng nhập (tên khách, thú cưng, dịch vụ, thuốc, chẩn đoán…) giữ nguyên, không dịch.
+- **Chỉnh sửa bản dịch** (*Quản trị › Ngôn ngữ & bản dịch*, quyền *Thông tin phòng khám, nhật ký hệ thống*):
+  - **Bản dịch** → tìm câu, sửa trực tiếp, **Lưu trang này**. Tab *Chưa dịch* liệt kê câu còn thiếu (giao diện hiển thị câu mới sẽ tự bổ sung vào danh sách).
+  - Câu có `{0}`, `{1}` là mẫu câu – giữ nguyên các chỗ này (là tên, mã, số được điền vào).
+  - Để trống = dùng bản kế thừa / văn bản gốc. Có thể sửa cả *Tiếng Việt* để đổi cách gọi (để trống = giữ nguyên).
+  - **Xuất CSV / Nhập CSV** để đưa cho người dịch sửa bằng Excel (cột 1 văn bản gốc, cột 2 bản dịch, lưu UTF-8).
+  - Câu đã sửa được giữ nguyên khi cập nhật phần mềm (bản dịch có sẵn chỉ bổ sung câu mới).
+- **Theo vùng miền**: *Thêm ngôn ngữ / vùng miền* → mã (VD `vi-Nam`, `en-GB`), tên hiển thị, **Kế thừa từ** ngôn ngữ gốc → chỉ sửa những câu khác biệt; câu không sửa lấy từ ngôn ngữ gốc. Có thể đặt định dạng số / ngày riêng.
+- **Đặt mặc định**: ngôn ngữ cho người dùng chưa chọn.
+
 ## Lễ tân
 1. **Khách gọi đặt lịch**: *Lịch hẹn › Đặt lịch hẹn* → gõ tên / SĐT khách (chưa có thì *+ Khách hàng mới*) → chọn thú cưng, dịch vụ, bác sĩ, giờ. Hệ thống cảnh báo nếu bác sĩ đã có lịch trùng giờ.
 2. **Khách đến theo lịch**: *Lịch hẹn* → **Khách đến** → phiếu khám vào hàng chờ.

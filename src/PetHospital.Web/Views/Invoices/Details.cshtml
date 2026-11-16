@@ -27,7 +27,7 @@
     <div class="col-lg-8">
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between">
-                <span>@i.Code · @i.Date.ToString("dd/MM/yyyy HH:mm")</span>
+                <span>@i.Code · @i.Date.ToDateTime()</span>
                 <span class="badge bg-@Badges.For(i.Status)">@i.Status.GetDisplayName()</span>
             </div>
             <div class="card-body pb-0">

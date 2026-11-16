@@ -6,7 +6,7 @@
 }
 <partial name="_PrintHeader" model="@(ViewBag.Settings as SettingsService)" />
 <h4 class="text-center fw-bold my-2">PHIẾU NHẬP KHO</h4>
-<div class="text-center small mb-3">Số: @r.Code · Ngày @r.Date.ToString("dd/MM/yyyy")</div>
+<div class="text-center small mb-3">Số: @r.Code · Ngày @r.Date.ToDate()</div>
 <p class="mb-1">Nhà cung cấp: <b>@r.Supplier</b> · Số hóa đơn: @r.SupplierInvoiceNo</p>
 <p>Ghi chú: @r.Note</p>
 <table class="table table-sm table-bordered">

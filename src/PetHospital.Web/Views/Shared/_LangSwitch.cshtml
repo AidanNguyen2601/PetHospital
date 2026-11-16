@@ -1,0 +1,20 @@
+@* Chọn ngôn ngữ trên trang đăng nhập *@
+@inject PetHospital.Web.Infrastructure.Localizer Loc
+@{
+    var langs = Loc.ActiveLanguages.ToList();
+    var cur = LangScope.Current?.Code;
+    var back = Context.Request.Path + Context.Request.QueryString;
+}
+@if (langs.Count > 1)
+{
+    <div class="lang-switch-auth">
+        @foreach (var l in langs)
+        {
+            <form asp-controller="Languages" asp-action="Switch" method="post" class="d-inline">
+                <input type="hidden" name="code" value="@l.Code" />
+                <input type="hidden" name="returnUrl" value="@back" />
+                <button class="btn btn-sm @(l.Code == cur ? "btn-primary" : "btn-light")">@l.Name</button>
+            </form>
+        }
+    </div>
+}

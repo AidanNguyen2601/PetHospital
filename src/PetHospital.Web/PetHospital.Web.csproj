@@ -15,4 +15,9 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Bản dịch giao diện có sẵn (nạp vào database lần đầu, sau đó sửa tại Quản trị › Ngôn ngữ) -->
+  <ItemGroup>
+    <Content Update="i18n\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

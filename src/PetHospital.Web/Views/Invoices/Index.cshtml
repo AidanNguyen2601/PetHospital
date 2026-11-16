@@ -35,7 +35,7 @@
                 {
                     <tr class="@(i.Status == InvoiceStatus.Cancelled ? "text-muted text-decoration-line-through" : "")">
                         <td><a asp-action="Details" asp-route-id="@i.Id" class="fw-semibold">@i.Code</a></td>
-                        <td class="small text-nowrap">@i.Date.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td class="small text-nowrap">@i.Date.ToDateTime()</td>
                         <td>@(i.Owner?.FullName ?? i.CustomerName)<div class="small text-muted">@i.Owner?.Phone</div></td>
                         <td>@i.Pet?.Name</td>
                         <td class="text-end money">@i.Total.ToMoney()</td>

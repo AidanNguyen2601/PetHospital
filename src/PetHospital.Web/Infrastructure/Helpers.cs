@@ -10,7 +10,11 @@ namespace PetHospital.Web.Infrastructure;
 
 public static class FormatExtensions
 {
-    public static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
+    private static readonly CultureInfo ViVN = CultureInfo.GetCultureInfo("vi-VN");
+    /// <summary>Định dạng số / tiền theo ngôn ngữ đang dùng (mặc định vi-VN)</summary>
+    public static CultureInfo Vi => LangScope.Current?.Culture ?? ViVN;
+    /// <summary>Định dạng ngày theo ngôn ngữ đang dùng</summary>
+    public static string DateFmt => LangScope.Current?.DateFormat ?? "dd/MM/yyyy";
 
     /// <summary>Định dạng tiền VNĐ: 15.000.000</summary>
     public static string ToMoney(this decimal value) => value.ToString("N0", Vi);
@@ -21,19 +25,23 @@ public static class FormatExtensions
     public static string ToQty(this decimal? value) => value.HasValue ? value.Value.ToString("0.##", Vi) : "";
 
     public static string ToShortMoney(this decimal value) =>
-        value >= 1_000_000_000 ? (value / 1_000_000_000m).ToString("0.##", Vi) + " tỷ"
-        : value >= 1_000_000 ? (value / 1_000_000m).ToString("0.#", Vi) + " tr"
+        value >= 1_000_000_000 ? (value / 1_000_000_000m).ToString("0.##", Vi) + " " + L.T("tỷ")
+        : value >= 1_000_000 ? (value / 1_000_000m).ToString("0.#", Vi) + " " + L.T("tr")
         : value.ToString("N0", Vi);
 
-    public static string ToDate(this DateTime value) => value.ToString("dd/MM/yyyy");
-    public static string ToDate(this DateTime? value) => value?.ToString("dd/MM/yyyy") ?? "";
-    public static string ToDateTime(this DateTime value) => value.ToString("dd/MM/yyyy HH:mm");
-    public static string ToDateTime(this DateTime? value) => value?.ToString("dd/MM/yyyy HH:mm") ?? "";
+    public static string ToDate(this DateTime value) => value.ToString(DateFmt, CultureInfo.InvariantCulture);
+    public static string ToDate(this DateTime? value) => value?.ToString(DateFmt, CultureInfo.InvariantCulture) ?? "";
+    public static string ToDateTime(this DateTime value) => value.ToString(DateFmt + " HH:mm", CultureInfo.InvariantCulture);
+    public static string ToDateTime(this DateTime? value) => value?.ToString(DateFmt + " HH:mm", CultureInfo.InvariantCulture) ?? "";
 
     public static string GetDisplayName(this Enum value)
     {
         var member = value.GetType().GetMember(value.ToString()).FirstOrDefault();
-        return member?.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? value.ToString();
+        var name = member?.GetCustomAttribute<DisplayAttribute>()?.GetName();
+        if (name == null) return value.ToString();
+        // Khóa theo ngữ cảnh khi cùng một chữ có nghĩa khác nhau (VD: PetGender:Cái = giống cái, khác đơn vị "Cái")
+        if (Localizer.Instance is { } loc && loc.TryGet(value.GetType().Name + ":" + name, out var ctx)) return ctx;
+        return L.T(name);
     }
 
     /// <summary>Danh sách chọn từ enum (tên hiển thị tiếng Việt)</summary>
@@ -41,7 +49,7 @@ public static class FormatExtensions
     {
         var list = Enum.GetValues<T>().Select(v => new SelectListItem(v.GetDisplayName(), Convert.ToInt32(v).ToString(),
             selected.HasValue && EqualityComparer<T>.Default.Equals(selected.Value, v))).ToList();
-        if (blank) list.Insert(0, new SelectListItem(blankText, ""));
+        if (blank) list.Insert(0, new SelectListItem(L.T(blankText), ""));
         return list;
     }
 

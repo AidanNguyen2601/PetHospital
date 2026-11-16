@@ -1,0 +1,13 @@
+@* Bản dịch cho chuỗi trong JavaScript (site.js dùng petT("...")) *@
+@{
+    var jsKeys = new[]
+    {
+        "Khôi phục bố cục cột", "Kéo để đổi vị trí cột · kéo mép phải để đổi độ rộng", "Vượt dung lượng:",
+        "Đang tải…", "-- Chọn thú cưng --", "Tồn:", "Không tìm thấy khách hàng", "Đang tìm…"
+    };
+    var dict = jsKeys.ToDictionary(k => k, k => T(k));
+}
+<script>
+    window.PET_I18N = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(dict));
+    window.petT = function (s) { return (window.PET_I18N && window.PET_I18N[s]) || s; };
+</script>

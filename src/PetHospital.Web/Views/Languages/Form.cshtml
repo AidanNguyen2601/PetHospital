@@ -1,0 +1,53 @@
+@model Language
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm ngôn ngữ / vùng miền" : "Sửa ngôn ngữ " + Model.Name; ViewData["Icon"] = "globe";
+    var langs = (List<Language>)ViewBag.Languages;
+}
+<form asp-action="Save" method="post" class="card" style="max-width:820px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" placeholder="en-GB, vi-Nam…" />
+                <span asp-validation-for="Code" class="text-danger small"></span>
+            </div>
+            <div class="col-md-5"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="English (UK)" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+            <div class="col-md-4">
+                <label asp-for="FallbackCode" class="form-label"></label>
+                <select asp-for="FallbackCode" class="form-select">
+                    <option value="">-- Không (dịch từ văn bản gốc) --</option>
+                    @foreach (var l in langs.Where(x => x.Id != Model.Id)) { <option value="@l.Code">@l.Name (@l.Code)</option> }
+                </select>
+                <span asp-validation-for="FallbackCode" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Culture" class="form-label"></label><input asp-for="Culture" class="form-control" placeholder="vi-VN, en-US, ko-KR" />
+                <span asp-validation-for="Culture" class="text-danger small"></span>
+                <div class="small text-muted">Dấu phân cách hàng nghìn / thập phân</div>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="DateFormat" class="form-label"></label><input asp-for="DateFormat" class="form-control" placeholder="dd/MM/yyyy" />
+                <span asp-validation-for="DateFormat" class="text-danger small"></span>
+                <div class="small text-muted">dd/MM/yyyy · MM/dd/yyyy · yyyy-MM-dd</div>
+            </div>
+            <div class="col-md-2"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" type="number" class="form-control" /></div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+            </div>
+            @if (Model.Id == 0)
+            {
+                <div class="col-md-6">
+                    <label class="form-label" for="copyFrom">Sao chép bản dịch từ</label>
+                    <select name="copyFrom" id="copyFrom" class="form-select">
+                        <option value="">-- Không sao chép --</option>
+                        @foreach (var l in langs.Where(x => x.Code != Localizer.Source)) { <option value="@l.Code">@l.Name (@l.Code)</option> }
+                    </select>
+                    <div class="small text-muted">Chọn khi muốn một bản riêng để sửa toàn bộ. Với biến thể vùng miền nên dùng "Kế thừa từ" và chỉ sửa câu khác biệt.</div>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2"><button class="btn btn-primary">Lưu</button><a class="btn btn-light" asp-action="Index">Hủy</a></div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

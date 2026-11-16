@@ -7,7 +7,7 @@
 }
 <partial name="_PrintHeader" model="@(ViewBag.Settings as SettingsService)" />
 <h4 class="text-center fw-bold my-3">PHIẾU KHÁM BỆNH &amp; ĐƠN THUỐC</h4>
-<div class="text-center small mb-3">Số: @v.Code · Ngày @v.VisitAt.ToString("dd/MM/yyyy HH:mm")</div>
+<div class="text-center small mb-3">Số: @v.Code · Ngày @v.VisitAt.ToDateTime()</div>
 <table class="table table-sm table-bordered">
     <tr><th style="width:18%">Chủ nuôi</th><td>@v.Owner?.FullName</td><th style="width:15%">Điện thoại</th><td>@v.Owner?.Phone</td></tr>
     <tr><th>Thú cưng</th><td>@v.Pet?.Name (@v.Pet?.Code) – @v.Pet?.Species?.Name @v.Pet?.Breed?.Name</td><th>Giới / tuổi</th><td>@v.Pet?.Gender.GetDisplayName() · @v.Pet?.AgeText</td></tr>

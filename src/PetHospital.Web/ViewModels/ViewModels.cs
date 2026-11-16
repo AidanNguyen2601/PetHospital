@@ -184,3 +184,17 @@ public record OwnerPickerModel(string HiddenSelector, string? PetSelectSelector,
 
 /// <summary>Biểu đồ cột đơn giản</summary>
 public record BarChartModel(List<(string Label, decimal Value)> Data, bool Money = true, int Height = 160);
+
+/// <summary>Một dòng trong bảng dịch</summary>
+public class TranslationRow
+{
+    /// <summary>Văn bản gốc (tiếng Việt)</summary>
+    public string Key { get; set; } = "";
+    /// <summary>Bản dịch riêng của ngôn ngữ</summary>
+    public string? Value { get; set; }
+    /// <summary>Giá trị trước khi sửa (phát hiện thay đổi)</summary>
+    public string? Original { get; set; }
+    /// <summary>Bản dịch kế thừa từ ngôn ngữ gốc (ngôn ngữ vùng miền)</summary>
+    public string? Fallback { get; set; }
+    public bool IsCustom { get; set; }
+}
