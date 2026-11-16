@@ -1,0 +1,21 @@
+@model Cage
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm chuồng" : "Sửa chuồng " + Model.Code; ViewData["Icon"] = "home-heart";
+}
+<form asp-action="Save" method="post" class="card" style="max-width:700px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <div class="row g-3">
+            <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" /><span asp-validation-for="Code" class="text-danger small"></span></div>
+            <div class="col-md-9"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+            <div class="col-md-4"><label asp-for="Size" class="form-label"></label><input asp-for="Size" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="DailyRate" class="form-label"></label><input asp-for="DailyRate" type="number" step="1000" min="0" class="form-control" /></div>
+            <div class="col-md-4 d-flex flex-column justify-content-end">
+                <div class="form-check"><input asp-for="IsIsolation" class="form-check-input" /><label asp-for="IsIsolation" class="form-check-label"></label></div>
+                <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2"><button class="btn btn-primary">Lưu</button><a class="btn btn-light" asp-action="Index">Hủy</a></div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

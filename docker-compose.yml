@@ -1,0 +1,51 @@
+# Phương án A: PetHospital có SQL Server 2022 riêng.  Chạy: docker compose up -d --build
+name: pethospital
+
+services:
+  pet-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pet-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${PET_SA_PASSWORD}
+      MSSQL_PID: Developer
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${PET_DB_PORT:-1441}:1433"
+    volumes:
+      - pet-sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [pet-net]
+    restart: unless-stopped
+
+  pet-web:
+    build: { context: ., dockerfile: Dockerfile }
+    image: pet-web:latest
+    container_name: pet-web
+    depends_on:
+      pet-db: { condition: service_healthy }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__PetConnection: "Server=pet-db,1433;Database=PET_DB;User Id=sa;Password=${PET_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      DataProtection__KeysPath: /app/keys
+      Database__SeedOnStartup: ${PET_SEED_SAMPLE:-true}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${PET_WEB_PORT:-8160}:8080"
+    volumes:
+      - pet-keys:/app/keys
+    networks: [pet-net]
+    restart: unless-stopped
+
+volumes:
+  pet-sqldata:
+  pet-keys:
+
+networks:
+  pet-net:
+    name: pet-net

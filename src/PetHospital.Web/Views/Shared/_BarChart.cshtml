@@ -1,0 +1,25 @@
+@model BarChartModel
+@{
+    var max = Model.Data.Count == 0 ? 0 : Model.Data.Max(x => x.Value);
+    var step = Model.Data.Count > 16 ? (int)Math.Ceiling(Model.Data.Count / 10.0) : 1;
+}
+@if (Model.Data.Count == 0 || max <= 0)
+{
+    <div class="text-muted small py-4 text-center">Chưa có dữ liệu.</div>
+}
+else
+{
+    <div class="chart-bars" style="height:@(Model.Height)px">
+        @foreach (var d in Model.Data)
+        {
+            var h = (double)(d.Value / max) * 100;
+            <div class="cb" style="height:@(h.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%" title="@d.Label: @(Model.Money ? d.Value.ToMoney() : d.Value.ToQty())"></div>
+        }
+    </div>
+    <div class="chart-labels">
+        @for (var i = 0; i < Model.Data.Count; i++)
+        {
+            <span>@(i % step == 0 ? Model.Data[i].Label : "")</span>
+        }
+    </div>
+}

@@ -1,0 +1,38 @@
+@model PagedList<AuditLog>
+@{
+    ViewData["Title"] = "Nhật ký hệ thống"; ViewData["Icon"] = "history";
+    var f = (ListFilter)ViewBag.Filter; var entities = (List<string>)ViewBag.Entities;
+    string? entity = ViewBag.Entity, action = ViewBag.Action, entityId = ViewBag.EntityId; int? userId = ViewBag.UserId; DateTime? from = ViewBag.From, to = ViewBag.To;
+}
+<div class="alert alert-light border small py-2">Ghi nhận tự động mọi thao tác tạo, sửa, xóa dữ liệu (người thực hiện, thời điểm, IP, giá trị trước → sau). Nhật ký chỉ xem, không sửa / xóa.</div>
+<form method="get" class="toolbar">
+    <select name="entity" class="form-select form-select-sm" style="max-width:200px"><option value="">-- Đối tượng --</option>@foreach (var e in entities) { <option value="@e" selected="@(e == entity)">@e</option> }</select>
+    <input name="entityId" value="@entityId" class="form-control form-control-sm" style="max-width:90px" placeholder="Id" />
+    <select name="action" class="form-select form-select-sm" style="max-width:150px"><option value="">-- Thao tác --</option>@foreach (var a in new[] { "Tạo", "Sửa", "Xóa" }) { <option value="@a" selected="@(a == action)">@a</option> }</select>
+    <select name="userId" class="form-select form-select-sm" style="max-width:220px"><option value="">-- Người thực hiện --</option>@foreach (var u in (List<AppUser>)ViewBag.Users) { <option value="@u.Id" selected="@(u.Id == userId)">@u.FullName</option> }</select>
+    <input type="date" name="from" value="@from?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+    <input type="date" name="to" value="@to?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:200px" placeholder="Tìm trong nội dung" />
+    <button class="btn btn-sm btn-outline-secondary">Lọc</button>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 audit-table" data-no-grid>
+            <thead><tr><th>Thời điểm</th><th>Người thực hiện</th><th>Thao tác</th><th>Đối tượng</th><th>Thay đổi</th><th>IP</th></tr></thead>
+            <tbody>
+                @foreach (var a in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap small">@a.At.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td class="small">@a.UserName</td>
+                        <td><span class="badge bg-@(a.Action == "Xóa" || a.Action == "Từ chối" || a.Action == "Hủy" ? "danger" : a.Action == "Tạo" ? "success" : a.Action == "Sửa" ? "secondary" : "primary")">@a.Action</span></td>
+                        <td class="small">@a.Entity #@a.EntityId</td>
+                        <td class="small"><div class="audit-changes">@a.Changes</div></td>
+                        <td class="small text-muted">@a.IpAddress</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

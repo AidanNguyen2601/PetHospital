@@ -1,0 +1,47 @@
+@model Pet
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm thú cưng" : "Sửa hồ sơ " + Model.Name; ViewData["Icon"] = "paw";
+    var breeds = (List<(int Id, int SpeciesId, string Name)>)ViewBag.Breeds;
+}
+<form asp-action="Save" method="post" class="card" style="max-width:900px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="OwnerId" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="mb-3 small text-muted">Chủ nuôi: <b class="text-dark">@ViewBag.OwnerName</b></div>
+        <div class="row g-3">
+            <div class="col-md-4"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" autofocus /><span asp-validation-for="Name" class="text-danger small"></span></div>
+            <div class="col-md-4"><label asp-for="SpeciesId" class="form-label"></label><select asp-for="SpeciesId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Species)"></select><span asp-validation-for="SpeciesId" class="text-danger small"></span></div>
+            <div class="col-md-4">
+                <label asp-for="BreedId" class="form-label"></label>
+                <select asp-for="BreedId" class="form-select">
+                    <option value="">-- Chọn giống --</option>
+                    @foreach (var b in breeds)
+                    {
+                        <option value="@b.Id" data-species="@b.SpeciesId" selected="@(b.Id == Model.BreedId)">@b.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3"><label asp-for="Gender" class="form-label"></label><select asp-for="Gender" class="form-select" asp-items="@(FormatExtensions.EnumOptions<PetGender>(Model.Gender))"></select></div>
+            <div class="col-md-3"><label asp-for="BirthDate" class="form-label"></label><input asp-for="BirthDate" type="date" class="form-control" /><span asp-validation-for="BirthDate" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="WeightKg" class="form-label"></label><input asp-for="WeightKg" type="number" step="0.01" min="0" class="form-control" /><span asp-validation-for="WeightKg" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="Color" class="form-label"></label><input asp-for="Color" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="Microchip" class="form-label"></label><input asp-for="Microchip" class="form-control" /><span asp-validation-for="Microchip" class="text-danger small"></span></div>
+            <div class="col-md-8"><label asp-for="Allergies" class="form-label"></label><input asp-for="Allergies" class="form-control" placeholder="VD: dị ứng Penicillin, thức ăn có gà…" /></div>
+            <div class="col-12"><label asp-for="Note" class="form-label"></label><textarea asp-for="Note" class="form-control" rows="2"></textarea></div>
+            <div class="col-12 d-flex gap-4">
+                <div class="form-check"><input asp-for="Neutered" class="form-check-input" /><label asp-for="Neutered" class="form-check-label"></label></div>
+                @if (Model.Id != 0)
+                {
+                    <div class="form-check"><input asp-for="IsDeceased" class="form-check-input" /><label asp-for="IsDeceased" class="form-check-label"></label></div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Lưu</button>
+        <a class="btn btn-light" href="javascript:history.back()">Hủy</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

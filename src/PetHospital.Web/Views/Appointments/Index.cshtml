@@ -1,0 +1,97 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Lịch hẹn"; ViewData["Icon"] = "calendar";
+    var items = (List<Appointment>)ViewBag.Items; DateTime day = ViewBag.Date; DateTime from = ViewBag.From; string view = ViewBag.View; int? vetId = ViewBag.VetId;
+    var prev = view == "week" ? day.AddDays(-7) : day.AddDays(-1);
+    var next = view == "week" ? day.AddDays(7) : day.AddDays(1);
+    var vi = new System.Globalization.CultureInfo("vi-VN");
+    string Dow(DateTime d) => vi.DateTimeFormat.GetDayName(d.DayOfWeek);
+    var canEdit = Me.HasAny(Perm.Appointment);
+}
+<form method="get" class="toolbar">
+    <a class="btn btn-sm btn-light" asp-route-date="@prev.ToString("yyyy-MM-dd")" asp-route-view="@view" asp-route-vetId="@vetId">&laquo;</a>
+    <input type="date" name="date" value="@day.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:160px" onchange="this.form.submit()" />
+    <a class="btn btn-sm btn-light" asp-route-date="@next.ToString("yyyy-MM-dd")" asp-route-view="@view" asp-route-vetId="@vetId">&raquo;</a>
+    <a class="btn btn-sm btn-outline-secondary" asp-route-date="@DateTime.Today.ToString("yyyy-MM-dd")" asp-route-view="@view" asp-route-vetId="@vetId">Hôm nay</a>
+    <input type="hidden" name="view" value="@view" />
+    <select name="vetId" class="form-select form-select-sm" style="max-width:220px" asp-items="@((List<SelectListItem>)ViewBag.Vets)" onchange="this.form.submit()"></select>
+    <div class="btn-group btn-group-sm">
+        <a class="btn @(view == "day" ? "btn-primary" : "btn-outline-primary")" asp-route-date="@day.ToString("yyyy-MM-dd")" asp-route-view="day" asp-route-vetId="@vetId">Ngày</a>
+        <a class="btn @(view == "week" ? "btn-primary" : "btn-outline-primary")" asp-route-date="@day.ToString("yyyy-MM-dd")" asp-route-view="week" asp-route-vetId="@vetId">Tuần</a>
+    </div>
+    @if (canEdit) { <a class="btn btn-sm btn-primary ms-auto" asp-action="Create" asp-route-at="@(day == DateTime.Today ? "" : day.AddHours(9).ToString("yyyy-MM-ddTHH:mm"))">@Icon("plus") Đặt lịch hẹn</a> }
+</form>
+
+@if (view == "week")
+{
+    <div class="week-grid">
+        @for (var i = 0; i < 7; i++)
+        {
+            var d = from.AddDays(i);
+            var list = items.Where(a => a.StartAt.Date == d).ToList();
+            <div class="week-day @(d == DateTime.Today ? "today" : "")">
+                <div class="wd-head"><a class="text-reset text-decoration-none" asp-route-date="@d.ToString("yyyy-MM-dd")" asp-route-view="day" asp-route-vetId="@vetId">@Dow(d) @d.ToString("dd/MM")</a> <span class="text-muted fw-normal">(@list.Count(a => a.Status != AppointmentStatus.Cancelled))</span></div>
+                <div class="wd-body">
+                    @foreach (var a in list)
+                    {
+                        <a class="appt-chip st-@a.Status" asp-action="Edit" asp-route-id="@a.Id" title="@a.Status.GetDisplayName() · @a.Reason">
+                            <b>@a.StartAt.ToString("HH:mm")</b> @a.Pet?.Name <span class="text-muted">· @(a.ServiceItem?.Name ?? a.Reason)</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-header">@Dow(day), @day.ToString("dd/MM/yyyy") – @items.Count(a => a.Status != AppointmentStatus.Cancelled) lịch hẹn</div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" data-no-grid>
+                <thead><tr><th>Giờ</th><th>Thú cưng</th><th>Chủ nuôi</th><th>Dịch vụ / lý do</th><th>Bác sĩ</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+                <tbody>
+                    @foreach (var a in items)
+                    {
+                        var open = a.Status is AppointmentStatus.Booked or AppointmentStatus.Confirmed;
+                        <tr class="@(a.Status is AppointmentStatus.Cancelled or AppointmentStatus.NoShow ? "text-muted" : "")">
+                            <td class="fw-semibold text-nowrap">@a.StartAt.ToString("HH:mm")<div class="small text-muted fw-normal">@a.DurationMinutes phút</div></td>
+                            <td>@if (a.Pet != null) { <a asp-controller="Pets" asp-action="Details" asp-route-id="@a.PetId">@a.Pet.Name</a> <span class="small text-muted">@a.Pet.Species?.Name</span> } else { <span class="text-muted small">(chưa chọn)</span> }</td>
+                            <td><a asp-controller="Owners" asp-action="Details" asp-route-id="@a.OwnerId">@a.Owner?.FullName</a><div class="small"><a href="tel:@a.Owner?.Phone">@a.Owner?.Phone</a></div></td>
+                            <td class="small">@a.ServiceItem?.Name<div class="text-muted">@a.Reason</div></td>
+                            <td class="small">@a.Vet?.DisplayName</td>
+                            <td><span class="badge bg-@Badges.For(a.Status)">@a.Status.GetDisplayName()</span><div class="small text-muted">@a.Code</div></td>
+                            <td class="text-end text-nowrap">
+                                @if (open && canEdit)
+                                {
+                                    <form asp-action="CheckIn" asp-route-id="@a.Id" method="post" class="d-inline"><button class="btn btn-sm btn-primary">Khách đến</button></form>
+                                    <div class="dropdown d-inline">
+                                        <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown">Khác</button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@a.Id">@Icon("edit")Sửa / dời lịch</a></li>
+                                            @if (a.Status == AppointmentStatus.Booked)
+                                            {
+                                                <li><form asp-action="SetStatus" asp-route-id="@a.Id" asp-route-status="Confirmed" method="post"><button class="dropdown-item">@Icon("check")Đã xác nhận với khách</button></form></li>
+                                            }
+                                            <li><form asp-action="SetStatus" asp-route-id="@a.Id" asp-route-status="NoShow" method="post"><button class="dropdown-item">@Icon("x")Khách không đến</button></form></li>
+                                            <li><form asp-action="SetStatus" asp-route-id="@a.Id" asp-route-status="Cancelled" method="post" data-confirm="Hủy lịch hẹn này?"><button class="dropdown-item text-danger">@Icon("trash")Hủy lịch</button></form></li>
+                                        </ul>
+                                    </div>
+                                }
+                                else if (a.VisitId.HasValue)
+                                {
+                                    <a class="btn btn-sm btn-light" asp-controller="Visits" asp-action="Details" asp-route-id="@a.VisitId">Phiếu khám</a>
+                                }
+                                else if (canEdit && a.Status is AppointmentStatus.Cancelled or AppointmentStatus.NoShow)
+                                {
+                                    <a class="btn btn-sm btn-light" asp-action="Edit" asp-route-id="@a.Id">Đặt lại</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (items.Count == 0) { <tr><td colspan="7" class="text-muted p-3">Không có lịch hẹn.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

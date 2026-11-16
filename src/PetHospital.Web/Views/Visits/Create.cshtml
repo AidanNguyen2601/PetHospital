@@ -1,0 +1,39 @@
+@model Visit
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Tiếp nhận khám"; ViewData["Icon"] = "stethoscope";
+    var services = (List<ServiceItem>)ViewBag.Services;
+}
+<form asp-action="Create" method="post" class="card" style="max-width:900px">
+    <div class="card-body">
+        <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Khách hàng <span class="text-danger">*</span></label>
+                <input type="hidden" asp-for="OwnerId" />
+                <partial name="_OwnerPicker" model="@(new OwnerPickerModel("#OwnerId", "#PetId", ViewBag.OwnerText as string, "#WeightKg"))" />
+                @if (Me.Has(Perm.CustomerEdit)) { <div class="small mt-1"><a asp-controller="Owners" asp-action="Create" target="_blank">+ Khách hàng mới</a> · thêm thú cưng tại hồ sơ khách</div> }
+            </div>
+            <div class="col-md-6"><label class="form-label">Thú cưng <span class="text-danger">*</span></label><select asp-for="PetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Pets)"></select></div>
+            <div class="col-md-6"><label asp-for="VetId" class="form-label"></label><select asp-for="VetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Vets)"></select></div>
+            <div class="col-md-6">
+                <label class="form-label">Dịch vụ chỉ định ban đầu</label>
+                <select name="serviceItemId" class="form-select">
+                    <option value="">-- Không --</option>
+                    @foreach (var g in services.GroupBy(s => s.Kind))
+                    {
+                        <optgroup label="@g.Key.GetDisplayName()">
+                            @foreach (var s in g) { <option value="@s.Id" selected="@(s.Code == "KB01")">@s.Name – @s.Price.ToMoney()đ</option> }
+                        </optgroup>
+                    }
+                </select>
+            </div>
+            <div class="col-md-8"><label asp-for="Reason" class="form-label"></label><input asp-for="Reason" class="form-control" placeholder="VD: bỏ ăn 2 ngày, nôn…" /></div>
+            <div class="col-md-4"><label asp-for="WeightKg" class="form-label"></label><input asp-for="WeightKg" type="number" step="0.01" min="0" class="form-control" /></div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Đưa vào hàng chờ khám</button>
+        <a class="btn btn-light" asp-action="Index">Hủy</a>
+    </div>
+</form>

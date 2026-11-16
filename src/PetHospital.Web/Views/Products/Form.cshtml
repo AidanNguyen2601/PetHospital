@@ -1,0 +1,36 @@
+@model Product
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm thuốc / hàng hóa" : "Sửa " + Model.Name; ViewData["Icon"] = "pill";
+}
+<form asp-action="Save" method="post" class="card" style="max-width:900px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" /><span asp-validation-for="Code" class="text-danger small"></span></div>
+            <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="Kind" class="form-label"></label><select asp-for="Kind" class="form-select" asp-items="@(FormatExtensions.EnumOptions<ProductKind>(Model.Kind))"></select></div>
+            <div class="col-md-3"><label asp-for="Unit" class="form-label"></label><input asp-for="Unit" class="form-control" list="units" /><span asp-validation-for="Unit" class="text-danger small"></span>
+                <datalist id="units"><option value="Viên"></option><option value="Chai"></option><option value="Lọ"></option><option value="Ống"></option><option value="Tuýp"></option><option value="Gói"></option><option value="Liều"></option><option value="ml"></option><option value="Cái"></option><option value="Hộp"></option><option value="Túi"></option></datalist>
+            </div>
+            <div class="col-md-5"><label asp-for="Ingredient" class="form-label"></label><input asp-for="Ingredient" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="SalePrice" class="form-label"></label><input asp-for="SalePrice" type="number" step="500" min="0" class="form-control" /><span asp-validation-for="SalePrice" class="text-danger small"></span></div>
+            @if (Model.Id == 0 && Me.CanSeeCost)
+            {
+                <div class="col-md-3"><label asp-for="CostPrice" class="form-label"></label><input asp-for="CostPrice" type="number" step="500" min="0" class="form-control" /><div class="small text-muted">Tự tính lại khi nhập kho</div></div>
+            }
+            <div class="col-md-3"><label asp-for="MinStock" class="form-label"></label><input asp-for="MinStock" type="number" step="1" min="0" class="form-control" /></div>
+            <div class="col-md-3"><label asp-for="BoosterDays" class="form-label"></label><input asp-for="BoosterDays" type="number" min="0" class="form-control" /><div class="small text-muted">Chỉ áp dụng cho vắc-xin</div></div>
+            <div class="col-12"><label asp-for="DefaultUsage" class="form-label"></label><input asp-for="DefaultUsage" class="form-control" placeholder="Gợi ý khi kê đơn, VD: uống 1 viên x 2 lần/ngày sau ăn" /></div>
+            <div class="col-12 d-flex gap-4">
+                <div class="form-check"><input asp-for="TrackExpiry" class="form-check-input" /><label asp-for="TrackExpiry" class="form-check-label"></label></div>
+                <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Lưu</button>
+        <a class="btn btn-light" href="javascript:history.back()">Hủy</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

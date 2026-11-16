@@ -1,0 +1,41 @@
+@model StockReceipt
+@{
+    var r = Model;
+    ViewData["Title"] = "Phiếu nhập " + r.Code; ViewData["Icon"] = "download";
+    var cost = Me.CanSeeCost; var no = 0;
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (r.State == DocState.Draft && Me.Has(Perm.StockManage))
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@r.Id">@Icon("edit") Sửa</a>
+        <form asp-action="Post" asp-route-id="@r.Id" method="post" data-confirm="Ghi sổ phiếu nhập này?"><button class="btn btn-sm btn-primary">@Icon("check") Ghi sổ (cộng tồn)</button></form>
+        <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="ms-auto" data-confirm="Xóa phiếu nháp?"><button class="btn btn-sm btn-outline-danger">@Icon("trash") Xóa</button></form>
+    }
+    <a class="btn btn-sm btn-outline-secondary" asp-action="Print" asp-route-id="@r.Id" target="_blank">@Icon("print") In phiếu</a>
+</div>
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="info row mb-0">
+            <dt class="col-sm-2">Số phiếu</dt><dd class="col-sm-4">@r.Code <span class="badge bg-@Badges.For(r.State)">@r.State.GetDisplayName()</span></dd>
+            <dt class="col-sm-2">Ngày nhập</dt><dd class="col-sm-4">@r.Date.ToDate()</dd>
+            <dt class="col-sm-2">Nhà cung cấp</dt><dd class="col-sm-4">@r.Supplier</dd>
+            <dt class="col-sm-2">Số HĐ NCC</dt><dd class="col-sm-4">@r.SupplierInvoiceNo</dd>
+            <dt class="col-sm-2">Người lập</dt><dd class="col-sm-4">@r.CreatedBy?.FullName</dd>
+            <dt class="col-sm-2">Ghi sổ lúc</dt><dd class="col-sm-4">@r.PostedAt.ToDateTime()</dd>
+            <dt class="col-sm-2">Ghi chú</dt><dd class="col-sm-10">@r.Note</dd>
+        </dl>
+    </div>
+</div>
+<div class="card">
+    <table class="table table-sm mb-0" data-no-grid>
+        <thead><tr><th>#</th><th>Mặt hàng</th><th>Số lô</th><th>Hạn dùng</th><th class="text-end">Số lượng</th>@if (cost) { <th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th> }</tr></thead>
+        <tbody>
+            @foreach (var l in r.Lines.OrderBy(x => x.Id))
+            {
+                no++;
+                <tr><td>@no</td><td><a asp-controller="Products" asp-action="Details" asp-route-id="@l.ProductId">@l.Product?.Name</a></td><td>@l.LotNo</td><td>@l.ExpiryDate.ToDate()</td><td class="text-end">@l.Quantity.ToQty() @l.Product?.Unit</td>@if (cost) { <td class="text-end money">@l.UnitCost.ToMoney()</td><td class="text-end money">@l.Amount.ToMoney()</td> }</tr>
+            }
+        </tbody>
+        @if (cost) { <tfoot><tr class="fw-bold"><td colspan="6" class="text-end">Tổng cộng</td><td class="text-end money">@r.Total.ToMoney()</td></tr></tfoot> }
+    </table>
+</div>

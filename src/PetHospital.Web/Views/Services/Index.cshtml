@@ -1,0 +1,43 @@
+@model List<ServiceItem>
+@{
+    ViewData["Title"] = "Dịch vụ & bảng giá"; ViewData["Icon"] = "tag";
+    ServiceKind? kind = ViewBag.Kind; string? q = ViewBag.Q;
+    var canEdit = Me.Has(Perm.Catalog);
+}
+<form method="get" class="toolbar">
+    <input name="q" value="@q" class="form-control form-control-sm" style="max-width:240px" placeholder="Mã, tên dịch vụ…" />
+    <select name="kind" class="form-select form-select-sm" style="max-width:200px" asp-items="@(FormatExtensions.EnumOptions<ServiceKind>(kind, true))" onchange="this.form.submit()"></select>
+    <button class="btn btn-sm btn-outline-secondary">Lọc</button>
+    <div class="ms-auto d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary" asp-route-kind="@kind" asp-route-q="@q" asp-route-export="xlsx">@Icon("download") Excel</a>
+        @if (canEdit) { <a class="btn btn-sm btn-primary" asp-action="Create">@Icon("plus") Thêm dịch vụ</a> }
+    </div>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Mã</th><th>Tên dịch vụ</th><th>Nhóm</th><th>ĐVT</th><th class="text-end">Đơn giá</th><th class="text-end">Thời lượng</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var s in Model)
+                {
+                    <tr class="@(s.IsActive ? "" : "text-muted")">
+                        <td class="small">@s.Code</td>
+                        <td>@s.Name @if (!s.IsActive) { <span class="badge bg-secondary">Ngừng</span> }<div class="small text-muted">@s.Description</div></td>
+                        <td class="small">@s.Kind.GetDisplayName()</td>
+                        <td class="small">@s.Unit</td>
+                        <td class="text-end money fw-semibold">@s.Price.ToMoney()</td>
+                        <td class="text-end small">@s.DurationMinutes phút</td>
+                        <td class="text-end text-nowrap">
+                            @if (canEdit)
+                            {
+                                <a class="btn btn-sm btn-light" asp-action="Edit" asp-route-id="@s.Id">Sửa</a>
+                                <form asp-action="Delete" asp-route-id="@s.Id" method="post" class="d-inline" data-confirm="Xóa dịch vụ này?"><button class="btn btn-sm btn-link text-danger">Xóa</button></form>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (Model.Count == 0) { <tr><td colspan="7" class="text-muted p-3">Chưa có dịch vụ.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>

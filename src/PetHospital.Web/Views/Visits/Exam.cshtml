@@ -1,0 +1,213 @@
+@model VisitFormModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    var v = Model.Visit;
+    ViewData["Title"] = "Khám bệnh – " + v.Pet?.Name + " (" + v.Code + ")"; ViewData["Icon"] = "stethoscope";
+    var serviceList = (List<ServiceItem>)ViewBag.ServiceList; var productList = (List<Product>)ViewBag.ProductList; var vaccineList = (List<Product>)ViewBag.VaccineList;
+    var vaccinations = (List<Vaccination>)ViewBag.Vaccinations; var history = (List<Visit>)ViewBag.History; var petVaccines = (List<Vaccination>)ViewBag.PetVaccines;
+    var services = Model.Services.Count > 0 ? Model.Services : new List<LineInput> { new() };
+    var medicines = Model.Medicines.Count > 0 ? Model.Medicines : new List<LineInput> { new() };
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var vaccineTotal = vaccinations.Where(x => x.Product != null).Sum(x => x.Product!.SalePrice);
+}
+<div class="row g-3">
+    <div class="col-xl-9">
+        <div class="card mb-3">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                <span class="pet-avatar lg @(v.Pet?.Species?.Name == "Mèo" ? "cat" : "")">@Icon("paw")</span>
+                <div class="flex-grow-1">
+                    <div class="fs-5 fw-bold"><a asp-controller="Pets" asp-action="Details" asp-route-id="@v.PetId" target="_blank">@v.Pet?.Name</a> <span class="badge bg-@Badges.For(v.Status)">@v.Status.GetDisplayName()</span></div>
+                    <div class="small text-muted">@v.Pet?.Species?.Name @v.Pet?.Breed?.Name · @v.Pet?.Gender.GetDisplayName() · @v.Pet?.AgeText · Chủ: @v.Owner?.FullName – @v.Owner?.Phone</div>
+                    @if (!string.IsNullOrEmpty(v.Pet?.Allergies)) { <div class="allergy mt-1">@Icon("alert") @v.Pet.Allergies</div> }
+                </div>
+                <div class="text-end small text-muted">Tiếp nhận @v.VisitAt.ToString("HH:mm dd/MM/yyyy")<br />@v.Code</div>
+            </div>
+        </div>
+
+        <form asp-action="Exam" asp-route-id="@v.Id" method="post" id="examForm">
+            <div asp-validation-summary="All" class="alert alert-danger small py-2" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+            <div class="card mb-3">
+                <div class="card-header">Sinh hiệu & thông tin khám</div>
+                <div class="card-body">
+                    <div class="vitals mb-3">
+                        <div><label asp-for="Visit.WeightKg" class="form-label small"></label><input asp-for="Visit.WeightKg" id="WeightKg" type="number" step="0.01" min="0" class="form-control" /></div>
+                        <div><label asp-for="Visit.Temperature" class="form-label small"></label><input asp-for="Visit.Temperature" type="number" step="0.1" class="form-control" /><span asp-validation-for="Visit.Temperature" class="text-danger small"></span></div>
+                        <div><label asp-for="Visit.HeartRate" class="form-label small"></label><input asp-for="Visit.HeartRate" type="number" class="form-control" /></div>
+                        <div><label asp-for="Visit.RespiratoryRate" class="form-label small"></label><input asp-for="Visit.RespiratoryRate" type="number" class="form-control" /></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label asp-for="Visit.VetId" class="form-label"></label><select asp-for="Visit.VetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Vets)"></select></div>
+                        <div class="col-md-6"><label asp-for="Visit.Reason" class="form-label"></label><input asp-for="Visit.Reason" class="form-control" /></div>
+                        <div class="col-md-6"><label asp-for="Visit.Symptoms" class="form-label"></label><textarea asp-for="Visit.Symptoms" class="form-control" rows="3"></textarea></div>
+                        <div class="col-md-6"><label asp-for="Visit.Examination" class="form-label"></label><textarea asp-for="Visit.Examination" class="form-control" rows="3"></textarea></div>
+                        <div class="col-md-6"><label asp-for="Visit.Diagnosis" class="form-label"></label><textarea asp-for="Visit.Diagnosis" class="form-control" rows="2"></textarea><span asp-validation-for="Visit.Diagnosis" class="text-danger small"></span></div>
+                        <div class="col-md-6"><label asp-for="Visit.Treatment" class="form-label"></label><textarea asp-for="Visit.Treatment" class="form-control" rows="2"></textarea></div>
+                        <div class="col-md-8"><label asp-for="Visit.Advice" class="form-label"></label><input asp-for="Visit.Advice" class="form-control" /></div>
+                        <div class="col-md-4">
+                            <label asp-for="Visit.FollowUpDate" class="form-label"></label><input asp-for="Visit.FollowUpDate" type="date" class="form-control" />
+                            <div class="form-check small mt-1"><input class="form-check-input" type="checkbox" name="createFollowUp" value="true" id="cfu" checked /><label class="form-check-label" for="cfu">Tạo lịch hẹn tái khám khi kết thúc</label></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between"><span>@Icon("clipboard") Dịch vụ thực hiện / chỉ định</span><span>Tạm tính: <b id="svcTotal">0</b> đ</span></div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 lines-table" data-total="#svcTotal" data-no-grid>
+                        <thead><tr><th style="width:40%">Dịch vụ</th><th style="width:10%">SL</th><th style="width:16%">Đơn giá</th><th>Ghi chú</th><th class="text-end">Thành tiền</th><th></th></tr></thead>
+                        <tbody id="svcRows" data-rows="Services">
+                            @foreach (var s in services)
+                            {
+                                <tr class="row-item">
+                                    <td>
+                                        <select data-f="ItemId" class="form-select form-select-sm item-select">
+                                            <option value="">-- Chọn dịch vụ --</option>
+                                            @foreach (var g in serviceList.GroupBy(x => x.Kind))
+                                            {
+                                                <optgroup label="@g.Key.GetDisplayName()">
+                                                    @foreach (var x in g)
+                                                    {
+                                                        <option value="@x.Id" data-price="@x.Price.ToString(inv)" selected="@(x.Id == s.ItemId)">@x.Name</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td><input data-f="Quantity" type="number" step="0.5" min="0.5" class="form-control form-control-sm qty" value="@s.Quantity.ToString(inv)" data-default="1" /></td>
+                                    <td><input data-f="UnitPrice" type="number" step="1000" min="0" class="form-control form-control-sm price" value="@(s.UnitPrice?.ToString(inv))" /></td>
+                                    <td><input data-f="Note" class="form-control form-control-sm" value="@s.Note" /></td>
+                                    <td class="text-end amount money">0</td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="Xóa dòng">@Icon("x")</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white"><button type="button" class="btn btn-sm btn-outline-primary" data-add-row="#svcRows">@Icon("plus") Thêm dịch vụ</button></div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between"><span>@Icon("pill") Đơn thuốc / vật tư sử dụng</span><span>Tạm tính: <b id="medTotal">0</b> đ</span></div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 lines-table" data-total="#medTotal" data-no-grid>
+                        <thead><tr><th style="width:32%">Thuốc / vật tư</th><th style="width:9%">SL</th><th style="width:13%">Đơn giá</th><th>Liều dùng, cách dùng</th><th style="width:8%">Số ngày</th><th class="text-end">Thành tiền</th><th></th></tr></thead>
+                        <tbody id="medRows" data-rows="Medicines">
+                            @foreach (var m in medicines)
+                            {
+                                <tr class="row-item">
+                                    <td>
+                                        <select data-f="ItemId" class="form-select form-select-sm item-select">
+                                            <option value="">-- Chọn thuốc --</option>
+                                            @foreach (var g in productList.GroupBy(x => x.Kind))
+                                            {
+                                                <optgroup label="@g.Key.GetDisplayName()">
+                                                    @foreach (var x in g)
+                                                    {
+                                                        <option value="@x.Id" data-price="@x.SalePrice.ToString(inv)" data-unit="@x.Unit" data-usage="@x.DefaultUsage" data-stock="@x.Stock.ToQty() @x.Unit" selected="@(x.Id == m.ItemId)" disabled="@(x.Stock <= 0 && x.Id != m.ItemId)">@x.Name (@x.Unit) @(x.Stock <= 0 ? "– hết hàng" : "")</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                        </select>
+                                        <div class="small text-muted stock-hint"></div>
+                                    </td>
+                                    <td><input data-f="Quantity" type="number" step="0.5" min="0.5" class="form-control form-control-sm qty" value="@m.Quantity.ToString(inv)" data-default="1" /></td>
+                                    <td><input data-f="UnitPrice" type="number" step="500" min="0" class="form-control form-control-sm price" value="@(m.UnitPrice?.ToString(inv))" /></td>
+                                    <td><input data-f="Note" class="form-control form-control-sm usage" value="@m.Note" placeholder="VD: uống 1 viên x 2 lần/ngày sau ăn" /></td>
+                                    <td><input data-f="Days" type="number" min="0" class="form-control form-control-sm" value="@m.Days" /></td>
+                                    <td class="text-end amount money">0</td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="Xóa dòng">@Icon("x")</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white"><button type="button" class="btn btn-sm btn-outline-primary" data-add-row="#medRows">@Icon("plus") Thêm thuốc</button></div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+                    <button class="btn btn-outline-primary" name="command" value="save">@Icon("check") Lưu tạm</button>
+                    <button class="btn btn-primary" name="command" value="complete" data-confirm="Kết thúc khám và chuyển hóa đơn sang thu ngân?">@Icon("check") Kết thúc khám &amp; lập hóa đơn</button>
+                    <span class="small text-muted ms-2">Vắc-xin đã tiêm trong lượt này: @vaccineTotal.ToMoney() đ (tự cộng vào hóa đơn)</span>
+                </div>
+            </div>
+        </form>
+
+        <div class="card mb-3">
+            <div class="card-header">@Icon("syringe") Tiêm phòng trong lượt khám</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <thead><tr><th>Vắc-xin</th><th>Mũi</th><th>Số lô</th><th>Hẹn mũi tiếp</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var x in vaccinations)
+                        {
+                            <tr>
+                                <td>@x.VaccineName</td><td>@x.DoseNumber</td><td>@x.LotNo</td><td>@x.NextDueDate.ToDate()</td>
+                                <td class="text-end"><form asp-action="RemoveVaccination" asp-route-id="@v.Id" asp-route-vaccinationId="@x.Id" method="post" data-confirm="Xóa mũi tiêm này?"><button class="btn btn-sm btn-link text-danger p-0">Xóa</button></form></td>
+                            </tr>
+                        }
+                        @if (vaccinations.Count == 0) { <tr><td colspan="5" class="text-muted small">Chưa ghi nhận mũi tiêm nào. (Lưu tạm phiếu khám trước khi thêm mũi tiêm để không mất dữ liệu đang nhập.)</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <form asp-action="AddVaccination" asp-route-id="@v.Id" method="post" class="card-footer bg-white row g-2 align-items-end m-0">
+                <div class="col-md-4">
+                    <label class="form-label small">Vắc-xin</label>
+                    <select name="productId" class="form-select form-select-sm" id="vxProduct">
+                        <option value="">-- Vắc-xin ngoài danh mục (nhập tên) --</option>
+                        @foreach (var x in vaccineList)
+                        {
+                            <option value="@x.Id" data-booster="@x.BoosterDays" disabled="@(x.Stock < 1)">@x.Name @(x.Stock < 1 ? "– hết hàng" : "(tồn " + x.Stock.ToQty() + ")")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3"><label class="form-label small">Tên (nếu ngoài danh mục)</label><input name="vaccineName" class="form-control form-control-sm" /></div>
+                <div class="col-md-1"><label class="form-label small">Mũi</label><input name="doseNumber" type="number" min="1" value="1" class="form-control form-control-sm" /></div>
+                <div class="col-md-2"><label class="form-label small">Số lô</label><input name="lotNo" class="form-control form-control-sm" /></div>
+                <div class="col-md-2"><label class="form-label small">Hẹn mũi tiếp</label><input name="nextDueDate" id="vxNext" type="date" class="form-control form-control-sm" /></div>
+                <div class="col-12"><button class="btn btn-sm btn-outline-primary">@Icon("plus") Ghi nhận mũi tiêm</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-xl-3">
+        <div class="card mb-3">
+            <div class="card-header">Lịch sử khám</div>
+            <div class="card-body">
+                @foreach (var h in history)
+                {
+                    <div class="history-item">
+                        <div class="meta"><a asp-action="Details" asp-route-id="@h.Id" target="_blank">@h.VisitAt.ToDate()</a> · @h.Vet?.FullName</div>
+                        <div class="small fw-semibold">@h.Diagnosis</div>
+                        <div class="small text-muted">@h.Treatment.Truncate(100)</div>
+                    </div>
+                }
+                @if (history.Count == 0) { <div class="text-muted small">Lần khám đầu tiên.</div> }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Tiêm phòng trước đây</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var x in petVaccines) { <li class="list-group-item small">@x.Date.ToDate() · @x.VaccineName (mũi @x.DoseNumber)</li> }
+                @if (petVaccines.Count == 0) { <li class="list-group-item small text-muted">Chưa có.</li> }
+            </ul>
+        </div>
+        <div class="d-grid gap-2">
+            <a class="btn btn-sm btn-outline-secondary" asp-action="Print" asp-route-id="@v.Id" target="_blank">@Icon("print") In phiếu khám / đơn thuốc</a>
+            @if (Me.Has(Perm.Admission)) { <a class="btn btn-sm btn-outline-secondary" asp-controller="Admissions" asp-action="Create" asp-route-visitId="@v.Id">@Icon("bed") Chuyển nằm viện</a> }
+            <form asp-action="Cancel" asp-route-id="@v.Id" method="post" data-confirm="Hủy phiếu khám này?" class="d-grid"><button class="btn btn-sm btn-outline-danger">@Icon("x") Hủy phiếu khám</button></form>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+        (function () {
+            var sel = document.getElementById('vxProduct'), next = document.getElementById('vxNext');
+            sel.addEventListener('change', function () {
+                var d = parseInt(sel.selectedOptions[0] && sel.selectedOptions[0].dataset.booster || '0', 10);
+                if (d > 0) { var t = new Date(); t.setDate(t.getDate() + d); next.value = t.toISOString().slice(0, 10); }
+            });
+        })();
+    </script>
+}

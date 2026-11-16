@@ -1,0 +1,182 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Bảng điều khiển"; ViewData["Icon"] = "dashboard";
+    var money = Me.HasAny(Perm.Reports, Perm.InvoiceManage);
+}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        <a class="card stat stat-link d-block text-decoration-none text-reset" asp-controller="Appointments" asp-action="Index">
+            <div class="label">@Icon("calendar", "stat-ico teal") Lịch hẹn hôm nay</div>
+            <div class="value">@Model.AppointmentsToday</div>
+        </a>
+    </div>
+    <div class="col-6 col-lg-3">
+        <a class="card stat stat-link d-block text-decoration-none text-reset" asp-controller="Visits" asp-action="Index">
+            <div class="label">@Icon("stethoscope", "stat-ico teal") Chờ khám / đang khám</div>
+            <div class="value">@Model.Waiting <span class="text-muted fs-6">/ @Model.InProgress</span></div>
+            <div class="small text-muted">Đã khám xong hôm nay: @Model.CompletedToday</div>
+        </a>
+    </div>
+    <div class="col-6 col-lg-3">
+        <a class="card stat stat-link d-block text-decoration-none text-reset" asp-controller="Admissions" asp-action="Index">
+            <div class="label">@Icon("bed", "stat-ico teal") Đang nội trú / lưu chuồng</div>
+            <div class="value">@Model.Admitted</div>
+        </a>
+    </div>
+    @if (money)
+    {
+        <div class="col-6 col-lg-3">
+            <a class="card stat stat-link d-block text-decoration-none text-reset" asp-controller="Invoices" asp-action="Index">
+                <div class="label">@Icon("coins", "stat-ico teal") Thu hôm nay</div>
+                <div class="value money">@Model.RevenueToday.ToMoney()</div>
+                <div class="small text-muted">Tháng này: @Model.RevenueMonth.ToShortMoney() · Công nợ: @Model.Receivable.ToShortMoney() (@Model.UnpaidInvoices HĐ)</div>
+            </a>
+        </div>
+    }
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@Icon("stethoscope") Hàng chờ khám</span>
+                @if (Me.HasAny(Perm.Appointment, Perm.VisitExam)) { <a class="btn btn-sm btn-outline-primary" asp-controller="Visits" asp-action="Create">@Icon("plus") Tiếp nhận</a> }
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Queue.Count == 0)
+                {
+                    <div class="text-muted small p-3">Không có thú cưng nào đang chờ khám.</div>
+                }
+                @{ var no = 0; }
+                @foreach (var v in Model.Queue)
+                {
+                    no++;
+                    <div class="queue-item">
+                        <span class="queue-no">#@no</span>
+                        <span class="pet-avatar @(v.Pet?.Species?.Name == "Mèo" ? "cat" : "")">@Icon("paw")</span>
+                        <div class="flex-grow-1 min-w-0">
+                            <div><a asp-controller="Pets" asp-action="Details" asp-route-id="@v.PetId" class="fw-semibold">@v.Pet?.Name</a> <span class="text-muted small">@v.Pet?.Species?.Name · @v.Owner?.FullName</span></div>
+                            <div class="small text-muted text-truncate">@v.VisitAt.ToString("HH:mm") · @v.Reason @(v.Vet != null ? " · " + v.Vet.DisplayName : "")</div>
+                        </div>
+                        <span class="badge bg-@Badges.For(v.Status)">@v.Status.GetDisplayName()</span>
+                        @if (Me.Has(Perm.VisitExam))
+                        {
+                            <form asp-controller="Visits" asp-action="Start" asp-route-id="@v.Id" method="post"><button class="btn btn-sm btn-primary">@(v.Status == VisitStatus.Waiting ? "Khám" : "Tiếp tục")</button></form>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@Icon("calendar") Lịch hẹn sắp tới hôm nay</span>
+                <a class="small" asp-controller="Appointments" asp-action="Index">Xem lịch</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <tbody>
+                        @foreach (var a in Model.Upcoming)
+                        {
+                            <tr>
+                                <td class="fw-semibold text-nowrap">@a.StartAt.ToString("HH:mm")</td>
+                                <td>@a.Pet?.Name <div class="small text-muted">@a.Owner?.FullName · @a.Owner?.Phone</div></td>
+                                <td class="small">@a.ServiceItem?.Name<div class="text-muted">@a.Vet?.DisplayName</div></td>
+                                <td><span class="badge bg-@Badges.For(a.Status)">@a.Status.GetDisplayName()</span></td>
+                            </tr>
+                        }
+                        @if (Model.Upcoming.Count == 0) { <tr><td class="text-muted small p-3">Không còn lịch hẹn nào hôm nay.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @if (money)
+    {
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">@Icon("chart") Tiền thu 30 ngày gần nhất</div>
+                <div class="card-body"><partial name="_BarChart" model="@(new BarChartModel(Model.Revenue30))" /></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">@Icon("receipt") Doanh thu tháng theo nhóm</div>
+                <div class="card-body">
+                    @{ var maxKind = Model.RevenueByKind.Count == 0 ? 1 : Math.Max(1, Model.RevenueByKind.Max(x => x.Value)); }
+                    @foreach (var k in Model.RevenueByKind)
+                    {
+                        <div class="bar-row">
+                            <div class="lbl">@k.Label</div>
+                            <div class="bar"><div style="width:@((k.Value * 100 / maxKind).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
+                            <div class="val">@k.Value.ToShortMoney()</div>
+                        </div>
+                    }
+                    @if (Model.RevenueByKind.Count == 0) { <div class="text-muted small">Chưa có doanh thu tháng này.</div> }
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@Icon("syringe") Nhắc lịch tiêm</span>
+                <a class="small" asp-controller="Vaccinations" asp-action="Index">Tất cả</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <tbody>
+                        @foreach (var v in Model.VaccineDue)
+                        {
+                            var overdue = v.NextDueDate < DateTime.Today;
+                            <tr>
+                                <td><a asp-controller="Pets" asp-action="Details" asp-route-id="@v.PetId">@v.Pet?.Name</a><div class="small text-muted">@v.Pet?.Owner?.FullName · @v.Pet?.Owner?.Phone</div></td>
+                                <td class="small">@v.VaccineName</td>
+                                <td class="text-nowrap"><span class="badge bg-@(overdue ? "danger" : "warning text-dark")">@v.NextDueDate.ToDate()</span></td>
+                            </tr>
+                        }
+                        @if (Model.VaccineDue.Count == 0) { <tr><td class="text-muted small p-3">Không có mũi tiêm nào sắp đến hạn.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @if (Me.HasAny(Perm.StockView, Perm.StockManage))
+    {
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>@Icon("alert") Cảnh báo kho</span>
+                    <a class="small" asp-controller="Products" asp-action="Index" asp-route-alert="low">Xem kho</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" data-no-grid>
+                        <tbody>
+                            @foreach (var p in Model.LowStock)
+                            {
+                                <tr>
+                                    <td><a asp-controller="Products" asp-action="Details" asp-route-id="@p.Id">@p.Name</a></td>
+                                    <td class="small text-nowrap">Tồn @p.Stock.ToQty() / tối thiểu @p.MinStock.ToQty() @p.Unit</td>
+                                    <td><span class="badge bg-@(p.Stock <= 0 ? "danger" : "warning text-dark")">@(p.Stock <= 0 ? "Hết hàng" : "Sắp hết")</span></td>
+                                </tr>
+                            }
+                            @foreach (var b in Model.Expiring)
+                            {
+                                var expired = b.ExpiryDate < DateTime.Today;
+                                <tr>
+                                    <td><a asp-controller="Products" asp-action="Details" asp-route-id="@b.ProductId">@b.Product?.Name</a></td>
+                                    <td class="small text-nowrap">Lô @b.LotNo · còn @b.Quantity.ToQty() · HSD @b.ExpiryDate.ToDate()</td>
+                                    <td><span class="badge bg-@(expired ? "danger" : "info text-dark")">@(expired ? "Đã hết hạn" : "Sắp hết hạn")</span></td>
+                                </tr>
+                            }
+                            @if (Model.LowStock.Count == 0 && Model.Expiring.Count == 0) { <tr><td class="text-muted small p-3">Kho ổn định.</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>

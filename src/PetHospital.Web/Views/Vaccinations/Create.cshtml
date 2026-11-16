@@ -1,0 +1,30 @@
+@model Vaccination
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    var pet = (Pet)ViewBag.Pet;
+    ViewData["Title"] = "Ghi sổ tiêm – " + pet.Name; ViewData["Icon"] = "syringe";
+}
+<div class="alert alert-light border small" style="max-width:820px">Dùng để ghi lại mũi tiêm trước đây hoặc tiêm tại nơi khác (không trừ kho, không tính tiền). Tiêm tại phòng khám hãy ghi nhận trong <b>phiếu khám</b>.</div>
+<form asp-action="Create" method="post" class="card" style="max-width:820px">
+    <div class="card-body">
+        <input type="hidden" asp-for="PetId" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="mb-3 small text-muted">Thú cưng: <b class="text-dark">@pet.Name</b> · chủ nuôi @pet.Owner?.FullName</div>
+        <div class="row g-3">
+            <div class="col-md-6"><label asp-for="VaccineName" class="form-label"></label><input asp-for="VaccineName" class="form-control" list="vxNames" /><span asp-validation-for="VaccineName" class="text-danger small"></span>
+                <datalist id="vxNames"><option value="Vắc-xin 7 bệnh chó"></option><option value="Vắc-xin 5 bệnh chó"></option><option value="Vắc-xin Dại"></option><option value="Vắc-xin 4 bệnh mèo"></option><option value="Vắc-xin Ho cũi chó"></option></datalist>
+            </div>
+            <div class="col-md-2"><label asp-for="DoseNumber" class="form-label"></label><input asp-for="DoseNumber" type="number" min="1" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="LotNo" class="form-label"></label><input asp-for="LotNo" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="Date" class="form-label"></label><input asp-for="Date" type="date" class="form-control" /><span asp-validation-for="Date" class="text-danger small"></span></div>
+            <div class="col-md-4"><label asp-for="NextDueDate" class="form-label"></label><input asp-for="NextDueDate" type="date" class="form-control" /><span asp-validation-for="NextDueDate" class="text-danger small"></span></div>
+            <div class="col-md-4"><label asp-for="VetId" class="form-label"></label><select asp-for="VetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Vets)"></select></div>
+            <div class="col-12"><label asp-for="Note" class="form-label"></label><input asp-for="Note" class="form-control" placeholder="VD: tiêm tại phòng khám khác, có sổ tiêm" /></div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Lưu</button>
+        <a class="btn btn-light" asp-controller="Pets" asp-action="Details" asp-route-id="@Model.PetId">Hủy</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

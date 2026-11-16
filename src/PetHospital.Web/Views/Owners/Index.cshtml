@@ -1,0 +1,44 @@
+@model PagedList<Owner>
+@{
+    ViewData["Title"] = "Khách hàng – chủ nuôi"; ViewData["Icon"] = "contact";
+    var f = (ListFilter)ViewBag.Filter; var debts = (Dictionary<int, decimal>)ViewBag.Debts; bool debt = ViewBag.Debt;
+}
+<form method="get" class="toolbar">
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:320px" placeholder="Tên, SĐT, mã KH, tên thú cưng…" autofocus />
+    <div class="form-check form-check-inline small ms-1">
+        <input class="form-check-input" type="checkbox" name="debt" value="true" id="debt" checked="@debt" onchange="this.form.submit()" />
+        <label class="form-check-label" for="debt">Còn công nợ</label>
+    </div>
+    <button class="btn btn-sm btn-outline-secondary">Tìm</button>
+    <div class="ms-auto d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Index" asp-route-q="@f.Q" asp-route-debt="@debt" asp-route-export="xlsx">@Icon("download") Excel</a>
+        @if (Me.Has(Perm.CustomerEdit)) { <a class="btn btn-sm btn-primary" asp-action="Create">@Icon("plus") Khách hàng mới</a> }
+    </div>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Mã</th><th>Khách hàng</th><th>Điện thoại</th><th>Thú cưng</th><th>Địa chỉ</th><th class="text-end">Công nợ</th></tr></thead>
+            <tbody>
+                @foreach (var o in Model.Items)
+                {
+                    <tr class="@(o.IsActive ? "" : "text-muted")">
+                        <td class="small">@o.Code</td>
+                        <td><a asp-action="Details" asp-route-id="@o.Id" class="fw-semibold">@o.FullName</a>@if (!o.IsActive) { <span class="badge bg-secondary ms-1">Ngừng</span> }</td>
+                        <td class="text-nowrap">@o.Phone</td>
+                        <td class="small">
+                            @foreach (var p in o.Pets)
+                            {
+                                <a asp-controller="Pets" asp-action="Details" asp-route-id="@p.Id" class="badge bg-light text-dark border text-decoration-none me-1">@p.Name · @p.Species?.Name</a>
+                            }
+                        </td>
+                        <td class="small text-muted">@o.Address.Truncate(60)</td>
+                        <td class="text-end money">@(debts.TryGetValue(o.Id, out var d) && d > 0 ? d.ToMoney() : "")</td>
+                    </tr>
+                }
+                @if (Model.Items.Count == 0) { <tr><td colspan="6" class="text-muted p-3">Không tìm thấy khách hàng.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

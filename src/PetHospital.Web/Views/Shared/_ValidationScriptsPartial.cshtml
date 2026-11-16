@@ -1,0 +1,6 @@
+<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script>
+    // Chỉ kiểm tra khi bấm Lưu: tránh việc thông báo lỗi biến mất khi rời ô nhập làm nút Lưu dịch chuyển và "nuốt" cú bấm.
+    $.validator.setDefaults({ onfocusout: false, onkeyup: false, onclick: false });
+</script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>

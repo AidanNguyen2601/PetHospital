@@ -1,0 +1,88 @@
+using System.Security.Claims;
+using PetHospital.Web.Data;
+using PetHospital.Web.Infrastructure;
+using PetHospital.Web.Models;
+using PetHospital.Web.ViewModels;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace PetHospital.Web.Controllers;
+
+public class AccountController : AppController
+{
+    private readonly IPasswordHasher<AppUser> _hasher;
+    public AccountController(PetDbContext db, IPasswordHasher<AppUser> hasher) : base(db) => _hasher = hasher;
+
+    [AllowAnonymous, HttpGet]
+    public IActionResult Login(string? returnUrl = null)
+    {
+        if (User.Identity?.IsAuthenticated == true) return RedirectToAction("Index", "Home");
+        return View(new LoginViewModel { ReturnUrl = returnUrl });
+    }
+
+    [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Login(LoginViewModel vm)
+    {
+        if (!ModelState.IsValid) return View(vm);
+        var user = await Db.Users.FirstOrDefaultAsync(u => u.Username == vm.Username);
+        if (user == null || !user.IsActive ||
+            _hasher.VerifyHashedPassword(user, user.PasswordHash, vm.Password) == PasswordVerificationResult.Failed)
+        {
+            ModelState.AddModelError(string.Empty, "Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.");
+            return View(vm);
+        }
+        await SignInAsync(user, vm.RememberMe);
+        user.LastLoginAt = DateTime.Now;
+        await Db.SaveChangesAsync();
+        if (!string.IsNullOrEmpty(vm.ReturnUrl) && Url.IsLocalUrl(vm.ReturnUrl)) return Redirect(vm.ReturnUrl);
+        return RedirectToAction("Index", "Home");
+    }
+
+    private async Task SignInAsync(AppUser user, bool persistent)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimsExtensions.FullNameClaim, user.DisplayName),
+            new(ClaimsExtensions.VetClaim, user.IsVet ? "1" : "0")
+        };
+        foreach (var r in user.RoleList()) claims.Add(new Claim(ClaimTypes.Role, r));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
+            new AuthenticationProperties { IsPersistent = persistent });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Logout()
+    {
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return RedirectToAction(nameof(Login));
+    }
+
+    [HttpGet]
+    public IActionResult ChangePassword() => View(new ChangePasswordViewModel());
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel vm)
+    {
+        if (!ModelState.IsValid) return View(vm);
+        var user = await Db.Users.FindAsync(CurrentUserId);
+        if (user == null) return NotFound();
+        if (_hasher.VerifyHashedPassword(user, user.PasswordHash, vm.CurrentPassword) == PasswordVerificationResult.Failed)
+        {
+            ModelState.AddModelError(nameof(vm.CurrentPassword), "Mật khẩu hiện tại không đúng");
+            return View(vm);
+        }
+        user.PasswordHash = _hasher.HashPassword(user, vm.NewPassword);
+        await Db.SaveChangesAsync();
+        return BackWithSuccess("Đổi mật khẩu thành công.", "Index", new { controller = "Home" });
+    }
+
+    [AllowAnonymous]
+    public IActionResult AccessDenied() => View();
+}

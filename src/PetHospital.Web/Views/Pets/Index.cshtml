@@ -1,0 +1,38 @@
+@model PagedList<Pet>
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Thú cưng (bệnh nhân)"; ViewData["Icon"] = "paw";
+    var f = (ListFilter)ViewBag.Filter; var last = (Dictionary<int, DateTime>)ViewBag.LastVisit;
+}
+<form method="get" class="toolbar">
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:320px" placeholder="Tên, mã, vi mạch, tên / SĐT chủ…" autofocus />
+    <select name="speciesId" class="form-select form-select-sm" style="max-width:180px" asp-items="@((List<SelectListItem>)ViewBag.Species)" onchange="this.form.submit()"></select>
+    <button class="btn btn-sm btn-outline-secondary">Tìm</button>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Mã</th><th>Tên</th><th>Loài / giống</th><th>Giới tính</th><th>Tuổi</th><th class="text-end">Cân nặng</th><th>Chủ nuôi</th><th>Khám gần nhất</th></tr></thead>
+            <tbody>
+                @foreach (var p in Model.Items)
+                {
+                    <tr class="@(p.IsDeceased ? "text-muted" : "")">
+                        <td class="small">@p.Code</td>
+                        <td><a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold">@p.Name</a>
+                            @if (!string.IsNullOrEmpty(p.Allergies)) { <span class="allergy ms-1" title="@p.Allergies">Dị ứng</span> }
+                            @if (p.IsDeceased) { <span class="badge bg-dark ms-1">Đã mất</span> }
+                        </td>
+                        <td class="small">@p.Species?.Name <span class="text-muted">@p.Breed?.Name</span></td>
+                        <td class="small">@p.Gender.GetDisplayName()@(p.Neutered ? " (đã triệt sản)" : "")</td>
+                        <td class="small text-nowrap">@p.AgeText</td>
+                        <td class="text-end small">@(p.WeightKg.HasValue ? p.WeightKg.Value.ToQty() + " kg" : "")</td>
+                        <td><a asp-controller="Owners" asp-action="Details" asp-route-id="@p.OwnerId">@p.Owner?.FullName</a><div class="small text-muted">@p.Owner?.Phone</div></td>
+                        <td class="small text-nowrap">@(last.TryGetValue(p.Id, out var lv) ? lv.ToDate() : "")</td>
+                    </tr>
+                }
+                @if (Model.Items.Count == 0) { <tr><td colspan="8" class="text-muted p-3">Không tìm thấy thú cưng.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

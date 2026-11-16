@@ -1,0 +1,25 @@
+@model StockReceipt
+@{
+    var r = Model;
+    ViewData["Title"] = "Phiếu nhập kho " + r.Code;
+    var no = 0;
+}
+<partial name="_PrintHeader" model="@(ViewBag.Settings as SettingsService)" />
+<h4 class="text-center fw-bold my-2">PHIẾU NHẬP KHO</h4>
+<div class="text-center small mb-3">Số: @r.Code · Ngày @r.Date.ToString("dd/MM/yyyy")</div>
+<p class="mb-1">Nhà cung cấp: <b>@r.Supplier</b> · Số hóa đơn: @r.SupplierInvoiceNo</p>
+<p>Ghi chú: @r.Note</p>
+<table class="table table-sm table-bordered">
+    <thead><tr><th>TT</th><th>Mã</th><th>Tên hàng</th><th>ĐVT</th><th>Số lô</th><th>Hạn dùng</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr></thead>
+    <tbody>
+        @foreach (var l in r.Lines.OrderBy(x => x.Id))
+        {
+            no++;
+            <tr><td>@no</td><td>@l.Product?.Code</td><td>@l.Product?.Name</td><td>@l.Product?.Unit</td><td>@l.LotNo</td><td>@l.ExpiryDate.ToDate()</td><td class="text-end">@l.Quantity.ToQty()</td><td class="text-end">@l.UnitCost.ToMoney()</td><td class="text-end">@l.Amount.ToMoney()</td></tr>
+        }
+    </tbody>
+    <tfoot><tr class="fw-bold"><td colspan="8" class="text-end">Tổng cộng</td><td class="text-end">@r.Total.ToMoney()</td></tr></tfoot>
+</table>
+<table class="w-100 mt-4 text-center">
+    <tr><td><b>Người giao hàng</b></td><td><b>Thủ kho</b><div style="height:60px"></div>@r.CreatedBy?.FullName</td><td><b>Quản lý</b></td></tr>
+</table>

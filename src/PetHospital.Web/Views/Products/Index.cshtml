@@ -1,0 +1,56 @@
+@model PagedList<Product>
+@{
+    ViewData["Title"] = "Thuốc & hàng hóa – tồn kho"; ViewData["Icon"] = "pill";
+    var f = (ListFilter)ViewBag.Filter; ProductKind? kind = ViewBag.Kind; string? alert = ViewBag.Alert;
+    var nearest = (Dictionary<int, DateTime?>)ViewBag.NearestExpiry; DateTime warn = ViewBag.Warn;
+    int lowCount = ViewBag.LowCount, expiryCount = ViewBag.ExpiryCount; decimal stockValue = ViewBag.StockValue;
+}
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><a class="card stat stat-link d-block text-decoration-none text-reset" asp-route-alert="low"><div class="label">@Icon("alert") Hết / sắp hết hàng</div><div class="value text-warning">@lowCount</div></a></div>
+    <div class="col-md-4"><a class="card stat stat-link d-block text-decoration-none text-reset" asp-route-alert="expiry"><div class="label">@Icon("clock") Có lô sắp hết hạn</div><div class="value text-danger">@expiryCount</div></a></div>
+    @if (Me.CanSeeCost) { <div class="col-md-4"><div class="card stat"><div class="label">@Icon("coins") Giá trị tồn kho (giá vốn)</div><div class="value money">@stockValue.ToMoney()</div></div></div> }
+</div>
+<form method="get" class="toolbar">
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:260px" placeholder="Mã, tên, hoạt chất…" />
+    <select name="kind" class="form-select form-select-sm" style="max-width:190px" asp-items="@(FormatExtensions.EnumOptions<ProductKind>(kind, true))" onchange="this.form.submit()"></select>
+    <select name="alert" class="form-select form-select-sm" style="max-width:190px" onchange="this.form.submit()">
+        <option value="">-- Tất cả --</option>
+        <option value="low" selected="@(alert == "low")">Hết / sắp hết hàng</option>
+        <option value="expiry" selected="@(alert == "expiry")">Lô sắp hết hạn</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary">Lọc</button>
+    <div class="ms-auto d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary" asp-route-q="@f.Q" asp-route-kind="@kind" asp-route-alert="@alert" asp-route-export="xlsx">@Icon("download") Excel</a>
+        @if (Me.Has(Perm.StockManage))
+        {
+            <a class="btn btn-sm btn-outline-primary" asp-controller="Receipts" asp-action="Create">@Icon("download") Nhập kho</a>
+            <a class="btn btn-sm btn-primary" asp-action="Create">@Icon("plus") Thêm mặt hàng</a>
+        }
+    </div>
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Mã</th><th>Tên</th><th>Loại</th><th>ĐVT</th><th class="text-end">Tồn kho</th><th class="text-end">Tối thiểu</th><th class="text-end">Giá bán</th>@if (Me.CanSeeCost) { <th class="text-end">Giá vốn BQ</th> }<th>HSD gần nhất</th></tr></thead>
+            <tbody>
+                @foreach (var p in Model.Items)
+                {
+                    var exp = nearest.TryGetValue(p.Id, out var e) ? e : null;
+                    <tr class="@(p.IsActive ? "" : "text-muted")">
+                        <td class="small">@p.Code</td>
+                        <td><a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold">@p.Name</a>@if (!p.IsActive) { <span class="badge bg-secondary ms-1">Ngừng</span> }<div class="small text-muted">@p.Ingredient</div></td>
+                        <td class="small">@p.Kind.GetDisplayName()</td>
+                        <td class="small">@p.Unit</td>
+                        <td class="text-end fw-semibold @(p.Stock <= 0 ? "text-danger" : p.Stock <= p.MinStock ? "text-warning" : "")">@p.Stock.ToQty()</td>
+                        <td class="text-end small text-muted">@p.MinStock.ToQty()</td>
+                        <td class="text-end money">@p.SalePrice.ToMoney()</td>
+                        @if (Me.CanSeeCost) { <td class="text-end money text-muted">@p.CostPrice.ToMoney()</td> }
+                        <td class="small text-nowrap @(exp.HasValue && exp <= warn ? (exp < DateTime.Today ? "text-danger fw-semibold" : "text-warning fw-semibold") : "")">@exp.ToDate()</td>
+                    </tr>
+                }
+                @if (Model.Items.Count == 0) { <tr><td colspan="9" class="text-muted p-3">Không có mặt hàng.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

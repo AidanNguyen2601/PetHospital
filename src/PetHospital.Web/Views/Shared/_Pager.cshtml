@@ -1,0 +1,54 @@
+@* Phân trang dùng chung: chọn số dòng mỗi trang + danh sách trang rút gọn; giữ nguyên tham số lọc *@
+@model IPagedList
+@using Microsoft.AspNetCore.Http.Extensions
+@{
+    string UrlFor(int page, int size)
+    {
+        var qb = new QueryBuilder();
+        foreach (var kv in Context.Request.Query)
+        {
+            if (kv.Key.Equals("Page", StringComparison.OrdinalIgnoreCase) || kv.Key.Equals("PageSize", StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (var v in kv.Value) if (!string.IsNullOrEmpty(v)) qb.Add(kv.Key, v!);
+        }
+        qb.Add("Page", page.ToString());
+        qb.Add("PageSize", size.ToString());
+        return Context.Request.PathBase + Context.Request.Path + qb.ToQueryString();
+    }
+    var page = Math.Clamp(Model.Page, 1, Math.Max(1, Model.TotalPages));
+    var outOfRange = Model.Page > Math.Max(1, Model.TotalPages);
+    var fromN = Model.TotalCount == 0 || outOfRange ? 0 : (Model.Page - 1) * Model.PageSize + 1;
+    var toN = outOfRange ? 0 : Math.Min(Model.Page * Model.PageSize, Model.TotalCount);
+    var pages = new List<int?>();
+    for (var i = 1; i <= Model.TotalPages; i++)
+    {
+        if (i == 1 || i == Model.TotalPages || Math.Abs(i - page) <= 2) pages.Add(i);
+        else if (pages.Count > 0 && pages[^1] != null) pages.Add(null);
+    }
+    var sizes = Paging.PageSizes.Contains(Model.PageSize) ? Paging.PageSizes : Paging.PageSizes.Append(Model.PageSize).OrderBy(x => x).ToArray();
+}
+<div class="pager-bar">
+    <label class="pager-size small text-muted">
+        Số dòng/trang
+        <select class="form-select form-select-sm" onchange="location.href=this.value" aria-label="Số dòng/trang">
+            @foreach (var s in sizes)
+            {
+                <option value="@UrlFor(1, s)" selected="@(s == Model.PageSize)">@s</option>
+            }
+        </select>
+    </label>
+    <span class="small text-muted text-nowrap">@fromN–@toN / @Model.TotalCount</span>
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Phân trang">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(page <= 1 ? "disabled" : "")"><a class="page-link" href="@UrlFor(page - 1, Model.PageSize)" aria-label="Trang trước">&laquo;</a></li>
+                @foreach (var p in pages)
+                {
+                    if (p == null) { <li class="page-item disabled"><span class="page-link">…</span></li> }
+                    else { <li class="page-item @(p == Model.Page ? "active" : "")"><a class="page-link" href="@UrlFor(p.Value, Model.PageSize)">@p</a></li> }
+                }
+                <li class="page-item @(page >= Model.TotalPages ? "disabled" : "")"><a class="page-link" href="@UrlFor(page + 1, Model.PageSize)" aria-label="Trang sau">&raquo;</a></li>
+            </ul>
+        </nav>
+    }
+</div>

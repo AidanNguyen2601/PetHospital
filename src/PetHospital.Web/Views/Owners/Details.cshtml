@@ -1,0 +1,120 @@
+@model Owner
+@{
+    ViewData["Title"] = Model.FullName; ViewData["Icon"] = "contact";
+    var visits = (List<Visit>)ViewBag.Visits; var invoices = (List<Invoice>)ViewBag.Invoices; var appts = (List<Appointment>)ViewBag.Appointments;
+    decimal debt = ViewBag.Debt; decimal spent = ViewBag.Spent;
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (Me.Has(Perm.CustomerEdit))
+    {
+        <a class="btn btn-sm btn-primary" asp-controller="Pets" asp-action="Create" asp-route-ownerId="@Model.Id">@Icon("plus") Thêm thú cưng</a>
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@Model.Id">@Icon("edit") Sửa</a>
+    }
+    @if (Me.HasAny(Perm.Appointment, Perm.VisitExam))
+    {
+        <a class="btn btn-sm btn-outline-primary" asp-controller="Appointments" asp-action="Create" asp-route-ownerId="@Model.Id">@Icon("calendar") Đặt lịch hẹn</a>
+        <a class="btn btn-sm btn-outline-primary" asp-controller="Visits" asp-action="Create" asp-route-ownerId="@Model.Id">@Icon("stethoscope") Tiếp nhận khám</a>
+    }
+    @if (Me.Has(Perm.InvoiceManage)) { <a class="btn btn-sm btn-outline-primary" asp-controller="Invoices" asp-action="Create" asp-route-ownerId="@Model.Id">@Icon("cart") Bán hàng</a> }
+    @if (Me.Has(Perm.CustomerEdit))
+    {
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="ms-auto" data-confirm="Xóa khách hàng này? (Nếu đã có dữ liệu phát sinh, hệ thống chỉ chuyển sang ngừng hoạt động)"><button class="btn btn-sm btn-outline-danger">@Icon("trash") Xóa</button></form>
+    }
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header">Thông tin khách hàng</div>
+            <div class="card-body">
+                <dl class="info row mb-0">
+                    <dt class="col-5">Mã KH</dt><dd class="col-7">@Model.Code @if (!Model.IsActive) { <span class="badge bg-secondary">Ngừng</span> }</dd>
+                    <dt class="col-5">Điện thoại</dt><dd class="col-7"><a href="tel:@Model.Phone">@Model.Phone</a></dd>
+                    <dt class="col-5">Email</dt><dd class="col-7">@Model.Email</dd>
+                    <dt class="col-5">Địa chỉ</dt><dd class="col-7">@Model.Address</dd>
+                    <dt class="col-5">Khách từ</dt><dd class="col-7">@Model.CreatedAt.ToDate()</dd>
+                    @if (Me.HasAny(Perm.InvoiceView, Perm.InvoiceManage))
+                    {
+                        <dt class="col-5">Tổng chi tiêu</dt><dd class="col-7 money">@spent.ToMoney()</dd>
+                        <dt class="col-5">Công nợ</dt><dd class="col-7 money @(debt > 0 ? "text-danger fw-semibold" : "")">@debt.ToMoney()</dd>
+                    }
+                </dl>
+                @if (!string.IsNullOrEmpty(Model.Note)) { <div class="alert alert-light border small mt-3 mb-0">@Model.Note</div> }
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Lịch hẹn sắp tới</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in appts)
+                {
+                    <li class="list-group-item small"><b>@a.StartAt.ToString("HH:mm dd/MM")</b> · @a.Pet?.Name · @a.Reason <span class="badge bg-@Badges.For(a.Status)">@a.Status.GetDisplayName()</span></li>
+                }
+                @if (appts.Count == 0) { <li class="list-group-item small text-muted">Không có.</li> }
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header">@Icon("paw") Thú cưng (@Model.Pets.Count)</div>
+            <div class="list-group list-group-flush">
+                @foreach (var p in Model.Pets.OrderBy(x => x.IsDeceased).ThenBy(x => x.Name))
+                {
+                    <a asp-controller="Pets" asp-action="Details" asp-route-id="@p.Id" class="list-group-item list-group-item-action d-flex gap-3 align-items-center">
+                        <span class="pet-avatar @(p.Species?.Name == "Mèo" ? "cat" : "")">@Icon("paw")</span>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">@p.Name <span class="small text-muted">@p.Code</span> @if (p.IsDeceased) { <span class="badge bg-dark">Đã mất</span> }</div>
+                            <div class="small text-muted">@p.Species?.Name @p.Breed?.Name · @p.Gender.GetDisplayName() · @p.AgeText @(p.WeightKg.HasValue ? "· " + p.WeightKg.Value.ToQty() + " kg" : "")</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(p.Allergies)) { <span class="allergy">@Icon("alert") Dị ứng</span> }
+                    </a>
+                }
+                @if (Model.Pets.Count == 0) { <div class="list-group-item text-muted small">Chưa có thú cưng.</div> }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">@Icon("stethoscope") Lịch sử khám</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <thead><tr><th>Ngày</th><th>Thú cưng</th><th>Lý do / chẩn đoán</th><th>Bác sĩ</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        @foreach (var v in visits)
+                        {
+                            <tr>
+                                <td class="text-nowrap"><a asp-controller="Visits" asp-action="Details" asp-route-id="@v.Id">@v.VisitAt.ToDate()</a></td>
+                                <td>@v.Pet?.Name</td>
+                                <td class="small">@v.Reason<div class="text-muted">@v.Diagnosis</div></td>
+                                <td class="small">@v.Vet?.DisplayName</td>
+                                <td><span class="badge bg-@Badges.For(v.Status)">@v.Status.GetDisplayName()</span></td>
+                            </tr>
+                        }
+                        @if (visits.Count == 0) { <tr><td colspan="5" class="text-muted small">Chưa có lượt khám.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @if (Me.HasAny(Perm.InvoiceView, Perm.InvoiceManage))
+        {
+            <div class="card">
+                <div class="card-header">@Icon("receipt") Hóa đơn</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" data-no-grid>
+                        <thead><tr><th>Số HĐ</th><th>Ngày</th><th>Thú cưng</th><th class="text-end">Tổng tiền</th><th class="text-end">Còn nợ</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            @foreach (var i in invoices)
+                            {
+                                <tr>
+                                    <td><a asp-controller="Invoices" asp-action="Details" asp-route-id="@i.Id">@i.Code</a></td>
+                                    <td class="text-nowrap">@i.Date.ToDate()</td>
+                                    <td>@i.Pet?.Name</td>
+                                    <td class="text-end money">@i.Total.ToMoney()</td>
+                                    <td class="text-end money">@(i.Status is InvoiceStatus.Unpaid or InvoiceStatus.Partial ? i.Balance.ToMoney() : "")</td>
+                                    <td><span class="badge bg-@Badges.For(i.Status)">@i.Status.GetDisplayName()</span></td>
+                                </tr>
+                            }
+                            @if (invoices.Count == 0) { <tr><td colspan="6" class="text-muted small">Chưa có hóa đơn.</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>

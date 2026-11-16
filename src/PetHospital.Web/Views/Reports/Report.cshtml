@@ -1,0 +1,61 @@
+@model ReportTable
+@{
+    var def = ((string Id, string Name, string Icon, string Description))ViewBag.Def;
+    ViewData["Title"] = def.Name; ViewData["Icon"] = def.Icon;
+    DateTime from = ViewBag.From, to = ViewBag.To;
+    var print = ViewData["Layout"] as string == "_PrintLayout";
+    string Cell(object? v) => v switch
+    {
+        null => "",
+        decimal d => d.ToMoney(),
+        double x => x.ToString("N1"),
+        int n => n.ToString("N0", FormatExtensions.Vi),
+        DateTime dt => dt.ToDate(),
+        _ => v.ToString() ?? ""
+    };
+}
+@if (print)
+{
+    <partial name="_PrintHeader" model="@(Context.RequestServices.GetRequiredService<SettingsService>())" />
+    <h4 class="text-center fw-bold my-2 text-uppercase">@Model.Title</h4>
+    <div class="text-center small mb-3">@Model.Subtitle</div>
+}
+else
+{
+    <form method="get" class="toolbar">
+        <a class="btn btn-sm btn-light" asp-action="Index">&laquo; Danh sách báo cáo</a>
+        @if (def.Id != "debts")
+        {
+            <span class="small text-muted ms-2">Từ</span><input type="date" name="from" value="@from.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+            <span class="small text-muted">đến</span><input type="date" name="to" value="@to.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+            <button class="btn btn-sm btn-outline-secondary">Xem</button>
+        }
+        <div class="ms-auto d-flex gap-2">
+            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="xlsx">@Icon("download") Excel</a>
+            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="print" target="_blank">@Icon("print") In / PDF</a>
+        </div>
+    </form>
+    <div class="small text-muted mb-2">@Model.Subtitle</div>
+    @if (Model.Chart != null && Model.Chart.Count > 0)
+    {
+        <div class="card mb-3"><div class="card-body"><partial name="_BarChart" model="@(new BarChartModel(Model.Chart, def.Id != "visits" && def.Id != "vaccines"))" /></div></div>
+    }
+}
+<div class="@(print ? "" : "card")">
+    <div class="table-responsive">
+        <table class="table table-sm @(print ? "table-bordered" : "table-hover") mb-0" data-no-grid>
+            <thead><tr>@for (var c = 0; c < Model.Headers.Count; c++) { <th class="@(Model.NumericColumns.Contains(c) ? "text-end" : "")">@Model.Headers[c]</th> }</tr></thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>@for (var c = 0; c < row.Count; c++) { <td class="@(Model.NumericColumns.Contains(c) ? "text-end money" : "")">@Cell(row[c])</td> }</tr>
+                }
+                @if (Model.Rows.Count == 0) { <tr><td colspan="@Model.Headers.Count" class="text-muted p-3">Không có dữ liệu trong kỳ.</td></tr> }
+            </tbody>
+            @if (Model.Footer != null)
+            {
+                <tfoot><tr class="fw-bold">@for (var c = 0; c < Model.Footer.Count; c++) { <td class="@(Model.NumericColumns.Contains(c) ? "text-end money" : "")">@Cell(Model.Footer[c])</td> }</tr></tfoot>
+            }
+        </table>
+    </div>
+</div>

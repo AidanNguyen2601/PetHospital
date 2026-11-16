@@ -1,0 +1,33 @@
+@model UserEditViewModel
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm người dùng" : "Sửa người dùng " + Model.Username; ViewData["Icon"] = "users";
+}
+<form asp-action="Save" method="post" class="card" style="max-width:860px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            <div class="col-md-4"><label asp-for="Username" class="form-label"></label><input asp-for="Username" class="form-control" autocomplete="off" /><span asp-validation-for="Username" class="text-danger small"></span></div>
+            <div class="col-md-5"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" placeholder="BS., ThS. BS." /></div>
+            <div class="col-md-4"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /></div>
+            <div class="col-md-5"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" autocomplete="new-password" placeholder="@(Model.Id == 0 ? "" : "Để trống nếu không đổi")" /><span asp-validation-for="Password" class="text-danger small"></span></div>
+            <div class="col-12">
+                <label class="form-label">Vai trò</label> <span asp-validation-for="Roles" class="text-danger small"></span>
+                <div class="d-flex flex-wrap gap-3">
+                    @foreach (var r in AppRoles.All)
+                    {
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="Roles" value="@r.Code" id="r_@r.Code" checked="@Model.Roles.Contains(r.Code)" /><label class="form-check-label" for="r_@r.Code">@r.Name</label></div>
+                    }
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-4">
+                <div class="form-check"><input asp-for="IsVet" class="form-check-input" /><label asp-for="IsVet" class="form-check-label"></label></div>
+                <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2"><button class="btn btn-primary">Lưu</button><a class="btn btn-light" asp-action="Index">Hủy</a></div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

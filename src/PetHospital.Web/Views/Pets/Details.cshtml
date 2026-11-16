@@ -1,0 +1,145 @@
+@model Pet
+@{
+    ViewData["Title"] = Model.Name + " – hồ sơ bệnh án"; ViewData["Icon"] = "paw";
+    var visits = (List<Visit>)ViewBag.Visits; var vaccines = (List<Vaccination>)ViewBag.Vaccinations;
+    var admissions = (List<Admission>)ViewBag.Admissions; var appts = (List<Appointment>)ViewBag.Appointments;
+    var weights = visits.Where(v => v.WeightKg.HasValue).OrderBy(v => v.VisitAt).TakeLast(12).Select(v => (v.VisitAt.ToString("dd/MM/yy"), v.WeightKg!.Value)).ToList();
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (Me.HasAny(Perm.Appointment, Perm.VisitExam) && !Model.IsDeceased)
+    {
+        <a class="btn btn-sm btn-primary" asp-controller="Visits" asp-action="Create" asp-route-petId="@Model.Id">@Icon("stethoscope") Tiếp nhận khám</a>
+        <a class="btn btn-sm btn-outline-primary" asp-controller="Appointments" asp-action="Create" asp-route-petId="@Model.Id">@Icon("calendar") Đặt lịch hẹn</a>
+    }
+    @if (Me.Has(Perm.Admission) && !Model.IsDeceased) { <a class="btn btn-sm btn-outline-primary" asp-controller="Admissions" asp-action="Create" asp-route-petId="@Model.Id">@Icon("bed") Lưu chuồng</a> }
+    @if (Me.HasAny(Perm.Vaccine, Perm.VisitExam)) { <a class="btn btn-sm btn-outline-primary" asp-controller="Vaccinations" asp-action="Create" asp-route-petId="@Model.Id">@Icon("syringe") Ghi sổ tiêm (ngoài)</a> }
+    <a class="btn btn-sm btn-outline-secondary" asp-action="Record" asp-route-id="@Model.Id" target="_blank">@Icon("print") In bệnh án</a>
+    @if (Me.Has(Perm.CustomerEdit))
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@Model.Id">@Icon("edit") Sửa</a>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="ms-auto" data-confirm="Xóa hồ sơ thú cưng này?"><button class="btn btn-sm btn-outline-danger">@Icon("trash") Xóa</button></form>
+    }
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex gap-3 align-items-center mb-3">
+                    <span class="pet-avatar lg @(Model.Species?.Name == "Mèo" ? "cat" : "")">@Icon("paw")</span>
+                    <div>
+                        <div class="fs-5 fw-bold">@Model.Name @if (Model.IsDeceased) { <span class="badge bg-dark">Đã mất</span> }</div>
+                        <div class="text-muted small">@Model.Code · @Model.Species?.Name @Model.Breed?.Name</div>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Allergies)) { <div class="allergy mb-3">@Icon("alert") @Model.Allergies</div> }
+                <dl class="info row mb-0">
+                    <dt class="col-5">Chủ nuôi</dt><dd class="col-7"><a asp-controller="Owners" asp-action="Details" asp-route-id="@Model.OwnerId">@Model.Owner?.FullName</a><div class="small"><a href="tel:@Model.Owner?.Phone">@Model.Owner?.Phone</a></div></dd>
+                    <dt class="col-5">Giới tính</dt><dd class="col-7">@Model.Gender.GetDisplayName()@(Model.Neutered ? " · đã triệt sản" : "")</dd>
+                    <dt class="col-5">Ngày sinh</dt><dd class="col-7">@Model.BirthDate.ToDate() <span class="text-muted">@Model.AgeText</span></dd>
+                    <dt class="col-5">Cân nặng</dt><dd class="col-7">@(Model.WeightKg.HasValue ? Model.WeightKg.Value.ToQty() + " kg" : "")</dd>
+                    <dt class="col-5">Màu lông</dt><dd class="col-7">@Model.Color</dd>
+                    <dt class="col-5">Vi mạch</dt><dd class="col-7">@Model.Microchip</dd>
+                </dl>
+                @if (!string.IsNullOrEmpty(Model.Note)) { <div class="alert alert-light border small mt-3 mb-0">@Model.Note</div> }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Biểu đồ cân nặng (kg)</div>
+            <div class="card-body"><partial name="_BarChart" model="@(new BarChartModel(weights, false, 110))" /></div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Lịch hẹn sắp tới</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in appts)
+                {
+                    <li class="list-group-item small"><b>@a.StartAt.ToString("HH:mm dd/MM/yyyy")</b> · @(a.ServiceItem?.Name ?? a.Reason) <span class="text-muted">@a.Vet?.DisplayName</span></li>
+                }
+                @if (appts.Count == 0) { <li class="list-group-item small text-muted">Không có.</li> }
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header">@Icon("syringe") Sổ tiêm phòng</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <thead><tr><th>Ngày tiêm</th><th>Vắc-xin</th><th>Mũi</th><th>Số lô</th><th>Bác sĩ</th><th>Hẹn mũi tiếp</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var v in vaccines)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@v.Date.ToDate()</td>
+                                <td>@v.VaccineName @if (v.VisitId == null) { <span class="badge bg-light text-dark border">ngoài</span> }</td>
+                                <td>@v.DoseNumber</td>
+                                <td class="small">@v.LotNo</td>
+                                <td class="small">@v.Vet?.DisplayName</td>
+                                <td class="text-nowrap">
+                                    @if (v.NextDueDate.HasValue)
+                                    {
+                                        <span class="badge bg-@(v.ReminderDone ? "light text-muted border" : v.NextDueDate < DateTime.Today ? "danger" : "warning text-dark")">@v.NextDueDate.ToDate()</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (v.VisitId == null && Me.HasAny(Perm.Vaccine, Perm.VisitExam))
+                                    {
+                                        <form asp-controller="Vaccinations" asp-action="Delete" asp-route-id="@v.Id" method="post" data-confirm="Xóa mũi tiêm này?"><button class="btn btn-sm btn-link text-danger p-0">Xóa</button></form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (vaccines.Count == 0) { <tr><td colspan="7" class="text-muted small">Chưa có mũi tiêm nào.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">@Icon("stethoscope") Lịch sử khám bệnh</div>
+            <div class="card-body">
+                @foreach (var v in visits)
+                {
+                    <div class="history-item">
+                        <div class="d-flex justify-content-between">
+                            <a asp-controller="Visits" asp-action="Details" asp-route-id="@v.Id" class="fw-semibold">@v.VisitAt.ToDateTime() · @v.Code</a>
+                            <span class="badge bg-@Badges.For(v.Status)">@v.Status.GetDisplayName()</span>
+                        </div>
+                        <div class="meta">@v.Vet?.DisplayName @(v.WeightKg.HasValue ? " · " + v.WeightKg.Value.ToQty() + " kg" : "") @(v.Temperature.HasValue ? " · " + v.Temperature.Value.ToQty() + " °C" : "")</div>
+                        @if (!string.IsNullOrEmpty(v.Reason)) { <div class="small"><b>Lý do:</b> @v.Reason</div> }
+                        @if (!string.IsNullOrEmpty(v.Diagnosis)) { <div class="small"><b>Chẩn đoán:</b> @v.Diagnosis</div> }
+                        @if (!string.IsNullOrEmpty(v.Treatment)) { <div class="small"><b>Điều trị:</b> @v.Treatment</div> }
+                        @if (v.Medicines.Count > 0)
+                        {
+                            <div class="small text-muted"><b>Thuốc:</b> @(string.Join("; ", v.Medicines.Select(m => (m.Product != null ? m.Product.Name : "") + " x" + m.Quantity.ToQty())))</div>
+                        }
+                        @if (v.Services.Count > 0)
+                        {
+                            <div class="small text-muted"><b>Dịch vụ:</b> @(string.Join(", ", v.Services.Select(s => s.ServiceItem != null ? s.ServiceItem.Name : "")))</div>
+                        }
+                    </div>
+                }
+                @if (visits.Count == 0) { <div class="text-muted small">Chưa có lượt khám.</div> }
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">@Icon("bed") Nội trú / lưu chuồng</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <thead><tr><th>Mã</th><th>Hình thức</th><th>Chuồng</th><th>Nhận</th><th>Xuất</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in admissions)
+                        {
+                            <tr>
+                                <td><a asp-controller="Admissions" asp-action="Details" asp-route-id="@a.Id">@a.Code</a></td>
+                                <td class="small">@a.Kind.GetDisplayName()</td>
+                                <td>@a.Cage?.Code</td>
+                                <td class="small text-nowrap">@a.AdmitAt.ToDateTime()</td>
+                                <td class="small text-nowrap">@a.DischargeAt.ToDateTime()</td>
+                                <td><span class="badge bg-@Badges.For(a.Status)">@a.Status.GetDisplayName()</span></td>
+                            </tr>
+                        }
+                        @if (admissions.Count == 0) { <tr><td colspan="6" class="text-muted small">Chưa có.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,210 @@
+@inject PetHospital.Web.Data.PetDbContext Db
+@{
+    var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
+    var act = ViewContext.RouteData.Values["action"]?.ToString();
+    string Active(string c, string? a = null) => ctrl == c && (a == null || act == a) ? "active" : "";
+    var queue = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(Db.Visits, v => v.Status == VisitStatus.Waiting || v.Status == VisitStatus.InProgress);
+    var pendingInv = Me.HasAny(Perm.InvoiceManage) ? await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(Db.Invoices, i => i.Status == InvoiceStatus.Draft) : 0;
+    var roleNames = string.Join(", ", Me.Roles.Select(r => AppRoles.DisplayName(r)));
+    var initial = Me.FullName.Length > 0 ? char.ToUpper(Me.FullName.Split(' ').Last()[0]) : '?';
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - PetCare</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script>
+        try { if (localStorage.getItem('pet.nav.mini') === '1') document.documentElement.classList.add('sidebar-mini'); } catch (e) { }
+    </script>
+</head>
+<body data-page="@ctrl.@act">
+<div class="app">
+    <aside class="sidebar" id="sidebar">
+        <a class="brand" asp-controller="Home" asp-action="Index"><span class="brand-full">PetCare<span>Thú y</span></span><span class="brand-mini">P<span>C</span></span></a>
+        <nav id="sideNav">
+            <div class="nav-block" data-nav="overview">
+                <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Tổng quan</span>@Icon("chevron", "chev")</button>
+                <div class="nav-items"><div class="nav-inner">
+                    <a class="@Active("Home")" asp-controller="Home" asp-action="Index">@Icon("dashboard")<span>Bảng điều khiển</span></a>
+                </div></div>
+            </div>
+
+            <div class="nav-block" data-nav="clinic">
+                <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Tiếp đón & khám bệnh</span>@Icon("chevron", "chev")</button>
+                <div class="nav-items"><div class="nav-inner">
+                    @if (Me.HasAny(Perm.Appointment, Perm.VisitExam))
+                    {
+                        <a class="@Active("Appointments")" asp-controller="Appointments" asp-action="Index">@Icon("calendar")<span>Lịch hẹn</span></a>
+                    }
+                    @if (Me.HasAny(Perm.VisitView, Perm.VisitExam))
+                    {
+                        <a class="@Active("Visits")" asp-controller="Visits" asp-action="Index">@Icon("stethoscope")<span>Khám bệnh</span>@if (queue > 0) { <b class="nav-count">@queue</b> }</a>
+                    }
+                    @if (Me.HasAny(Perm.Vaccine, Perm.VisitExam))
+                    {
+                        <a class="@Active("Vaccinations")" asp-controller="Vaccinations" asp-action="Index">@Icon("syringe")<span>Tiêm phòng & nhắc lịch</span></a>
+                    }
+                    @if (Me.Has(Perm.Admission))
+                    {
+                        <a class="@Active("Admissions")" asp-controller="Admissions" asp-action="Index">@Icon("bed")<span>Nội trú / lưu chuồng</span></a>
+                    }
+                </div></div>
+            </div>
+
+            @if (Me.Has(Perm.CustomerView))
+            {
+                <div class="nav-block" data-nav="customers">
+                    <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Khách hàng</span>@Icon("chevron", "chev")</button>
+                    <div class="nav-items"><div class="nav-inner">
+                        <a class="@Active("Owners")" asp-controller="Owners" asp-action="Index">@Icon("contact")<span>Chủ nuôi</span></a>
+                        <a class="@Active("Pets")" asp-controller="Pets" asp-action="Index">@Icon("paw")<span>Thú cưng (bệnh nhân)</span></a>
+                    </div></div>
+                </div>
+            }
+
+            @if (Me.HasAny(Perm.InvoiceView, Perm.InvoiceManage))
+            {
+                <div class="nav-block" data-nav="cashier">
+                    <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Thu ngân</span>@Icon("chevron", "chev")</button>
+                    <div class="nav-items"><div class="nav-inner">
+                        <a class="@(ctrl == "Invoices" && act != "Create" ? "active" : "")" asp-controller="Invoices" asp-action="Index">@Icon("receipt")<span>Hóa đơn</span>@if (pendingInv > 0) { <b class="nav-count">@pendingInv</b> }</a>
+                        @if (Me.Has(Perm.InvoiceManage))
+                        {
+                            <a class="@Active("Invoices", "Create")" asp-controller="Invoices" asp-action="Create">@Icon("cart")<span>Bán hàng / lập hóa đơn</span></a>
+                        }
+                    </div></div>
+                </div>
+            }
+
+            @if (Me.HasAny(Perm.StockView, Perm.StockManage))
+            {
+                <div class="nav-block" data-nav="stock">
+                    <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Kho thuốc</span>@Icon("chevron", "chev")</button>
+                    <div class="nav-items"><div class="nav-inner">
+                        <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("pill")<span>Thuốc & hàng hóa</span></a>
+                        <a class="@Active("Receipts")" asp-controller="Receipts" asp-action="Index">@Icon("download")<span>Phiếu nhập kho</span></a>
+                    </div></div>
+                </div>
+            }
+
+            @if (Me.Has(Perm.Reports))
+            {
+                <div class="nav-block" data-nav="reports">
+                    <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Báo cáo</span>@Icon("chevron", "chev")</button>
+                    <div class="nav-items"><div class="nav-inner">
+                        <a class="@Active("Reports")" asp-controller="Reports" asp-action="Index">@Icon("chart")<span>Báo cáo & thống kê</span></a>
+                    </div></div>
+                </div>
+            }
+
+            <div class="nav-block" data-nav="catalog">
+                <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Danh mục</span>@Icon("chevron", "chev")</button>
+                <div class="nav-items"><div class="nav-inner">
+                    <a class="@Active("Services")" asp-controller="Services" asp-action="Index">@Icon("tag")<span>Dịch vụ & bảng giá</span></a>
+                    @if (Me.HasAny(Perm.Catalog, Perm.CustomerEdit))
+                    {
+                        <a class="@Active("Species")" asp-controller="Species" asp-action="Index">@Icon("paw")<span>Loài & giống</span></a>
+                    }
+                    @if (Me.HasAny(Perm.Catalog, Perm.Admission))
+                    {
+                        <a class="@Active("Cages")" asp-controller="Cages" asp-action="Index">@Icon("home-heart")<span>Chuồng lưu trú</span></a>
+                    }
+                </div></div>
+            </div>
+
+            @if (Me.HasAny(Perm.Users, Perm.System))
+            {
+                <div class="nav-block" data-nav="system">
+                    <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Quản trị</span>@Icon("chevron", "chev")</button>
+                    <div class="nav-items"><div class="nav-inner">
+                        @if (Me.Has(Perm.Users))
+                        {
+                            <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@Icon("users")<span>Người dùng</span></a>
+                            <a class="@Active("Roles")" asp-controller="Roles" asp-action="Index">@Icon("shield")<span>Vai trò & quyền</span></a>
+                        }
+                        @if (Me.Has(Perm.System))
+                        {
+                            <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin phòng khám</span></a>
+                            <a class="@Active("Audit")" asp-controller="Audit" asp-action="Index">@Icon("history")<span>Nhật ký hệ thống</span></a>
+                            <a class="@Active("DemoData")" asp-controller="DemoData" asp-action="Index">@Icon("flow")<span>Dữ liệu mô phỏng</span></a>
+                        }
+                    </div></div>
+                </div>
+            }
+        </nav>
+        <script>
+            (function () {
+                var nav = document.getElementById('sideNav'), collapsed = [];
+                try { collapsed = JSON.parse(localStorage.getItem('pet.nav.collapsed') || '[]'); } catch (e) { }
+                collapsed.forEach(function (k) {
+                    var b = nav.querySelector('.nav-block[data-nav="' + k + '"]');
+                    if (b && !b.querySelector('a.active')) { b.classList.add('collapsed'); b.querySelector('.nav-toggle').setAttribute('aria-expanded', 'false'); }
+                });
+            })();
+        </script>
+        <div class="sidebar-foot">
+            <button type="button" class="side-btn" data-nav-all="expand" title="Mở rộng tất cả">@Icon("expand-all")<span>Mở rộng tất cả</span></button>
+            <button type="button" class="side-btn" data-nav-all="collapse" title="Thu gọn tất cả">@Icon("collapse-all")<span>Thu gọn tất cả</span></button>
+            <button type="button" class="side-btn side-mini-btn" data-sidebar-toggle data-label-collapse="Rút gọn menu" data-label-expand="Mở rộng menu" title="Rút gọn menu">@Icon("panel")<span>Rút gọn menu</span></button>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop" data-sidebar-close></div>
+
+    <div class="main">
+        <header class="topbar">
+            <div class="d-flex align-items-center gap-2 min-w-0">
+                <button type="button" class="btn btn-light btn-sm menu-btn" data-sidebar-toggle title="Ẩn / hiện menu" aria-label="Ẩn / hiện menu" aria-controls="sidebar">@Icon("menu")</button>
+                <h1 class="page-title">@Icon(ViewData["Icon"] as string ?? "paw", "ico-title")<span>@ViewData["Title"]</span></h1>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                @if (Me.Has(Perm.CustomerView))
+                {
+                    <form asp-controller="Home" asp-action="Search" method="get" class="d-none d-lg-flex topbar-search" role="search">
+                        <input name="q" class="form-control form-control-sm" placeholder="SĐT, tên khách, mã thú cưng, vi mạch…" aria-label="Tìm nhanh" />
+                    </form>
+                }
+                <div class="dropdown">
+                    <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">@Icon("plus") <span class="d-none d-sm-inline">Tạo nhanh</span></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @if (Me.HasAny(Perm.Appointment, Perm.VisitExam))
+                        {
+                            <li><a class="dropdown-item" asp-controller="Visits" asp-action="Create">@Icon("stethoscope")Tiếp nhận khám (khách vãng lai)</a></li>
+                            <li><a class="dropdown-item" asp-controller="Appointments" asp-action="Create">@Icon("calendar")Đặt lịch hẹn</a></li>
+                        }
+                        @if (Me.Has(Perm.CustomerEdit)) { <li><a class="dropdown-item" asp-controller="Owners" asp-action="Create">@Icon("contact")Khách hàng mới</a></li> }
+                        @if (Me.Has(Perm.Admission)) { <li><a class="dropdown-item" asp-controller="Admissions" asp-action="Create">@Icon("bed")Nhận lưu chuồng</a></li> }
+                        @if (Me.Has(Perm.InvoiceManage)) { <li><hr class="dropdown-divider" /></li><li><a class="dropdown-item" asp-controller="Invoices" asp-action="Create">@Icon("cart")Bán hàng / hóa đơn</a></li> }
+                        @if (Me.Has(Perm.StockManage)) { <li><a class="dropdown-item" asp-controller="Receipts" asp-action="Create">@Icon("download")Nhập kho</a></li> }
+                    </ul>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-light dropdown-toggle user-btn" data-bs-toggle="dropdown">
+                        <span class="avatar">@initial</span>
+                        <span class="d-none d-md-inline">@Me.FullName</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text small text-muted">@roleNames</span></li>
+                        <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@Icon("key")Đổi mật khẩu</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">@Icon("logout")Đăng xuất</button></form></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+        <main class="content">
+            @if (TempData["Success"] is string ok) { <div class="alert alert-success alert-dismissible fade show">@ok<button class="btn-close" data-bs-dismiss="alert"></button></div> }
+            @if (TempData["Error"] is string err) { <div class="alert alert-danger alert-dismissible fade show">@err<button class="btn-close" data-bs-dismiss="alert"></button></div> }
+            @RenderBody()
+        </main>
+        <footer class="footer">&copy; @DateTime.Now.Year PetCare – Quản lý phòng khám thú y — ASP.NET Core 8 MVC + SQL Server 2022</footer>
+    </div>
+</div>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

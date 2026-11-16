@@ -1,0 +1,37 @@
+@model Pet
+@{
+    ViewData["Title"] = "Hồ sơ bệnh án " + Model.Name;
+    var visits = (List<Visit>)ViewBag.Visits; var vaccines = (List<Vaccination>)ViewBag.Vaccinations;
+}
+<partial name="_PrintHeader" model="@(Context.RequestServices.GetRequiredService<SettingsService>())" />
+<h4 class="text-center fw-bold my-3">HỒ SƠ BỆNH ÁN THÚ Y</h4>
+<table class="table table-sm table-bordered">
+    <tr><th style="width:18%">Tên thú cưng</th><td>@Model.Name (@Model.Code)</td><th style="width:18%">Chủ nuôi</th><td>@Model.Owner?.FullName – @Model.Owner?.Phone</td></tr>
+    <tr><th>Loài / giống</th><td>@Model.Species?.Name @Model.Breed?.Name</td><th>Địa chỉ</th><td>@Model.Owner?.Address</td></tr>
+    <tr><th>Giới tính</th><td>@Model.Gender.GetDisplayName()@(Model.Neutered ? " (đã triệt sản)" : "")</td><th>Ngày sinh</th><td>@Model.BirthDate.ToDate() @Model.AgeText</td></tr>
+    <tr><th>Cân nặng</th><td>@(Model.WeightKg.HasValue ? Model.WeightKg.Value.ToQty() + " kg" : "")</td><th>Vi mạch</th><td>@Model.Microchip</td></tr>
+    <tr><th>Dị ứng / lưu ý</th><td colspan="3">@Model.Allergies</td></tr>
+</table>
+<h6 class="fw-bold mt-3">I. Sổ tiêm phòng</h6>
+<table class="table table-sm table-bordered">
+    <thead><tr><th>Ngày tiêm</th><th>Vắc-xin</th><th>Mũi</th><th>Số lô</th><th>Hẹn mũi tiếp</th></tr></thead>
+    <tbody>
+        @foreach (var v in vaccines) { <tr><td>@v.Date.ToDate()</td><td>@v.VaccineName</td><td>@v.DoseNumber</td><td>@v.LotNo</td><td>@v.NextDueDate.ToDate()</td></tr> }
+        @if (vaccines.Count == 0) { <tr><td colspan="5" class="text-muted">Chưa có.</td></tr> }
+    </tbody>
+</table>
+<h6 class="fw-bold mt-3">II. Quá trình khám và điều trị</h6>
+@foreach (var v in visits)
+{
+    <table class="table table-sm table-bordered mb-2">
+        <tr class="table-light"><th colspan="4">@v.VisitAt.ToDateTime() – @v.Code – Bác sĩ: @v.Vet?.DisplayName</th></tr>
+        <tr><th style="width:18%">Lý do khám</th><td colspan="3">@v.Reason</td></tr>
+        <tr><th>Sinh hiệu</th><td colspan="3">Cân nặng @v.WeightKg.ToQty() kg · Nhiệt độ @v.Temperature.ToQty() °C · Nhịp tim @v.HeartRate · Nhịp thở @v.RespiratoryRate</td></tr>
+        <tr><th>Triệu chứng</th><td colspan="3">@v.Symptoms</td></tr>
+        <tr><th>Khám lâm sàng</th><td colspan="3">@v.Examination</td></tr>
+        <tr><th>Chẩn đoán</th><td colspan="3" class="fw-semibold">@v.Diagnosis</td></tr>
+        <tr><th>Điều trị</th><td colspan="3">@v.Treatment</td></tr>
+        <tr><th>Thuốc</th><td colspan="3">@(string.Join("; ", v.Medicines.Select(m => (m.Product != null ? m.Product.Name : "") + " x" + m.Quantity.ToQty() + (string.IsNullOrEmpty(m.Dosage) ? "" : " – " + m.Dosage))))</td></tr>
+    </table>
+}
+@if (visits.Count == 0) { <p class="text-muted">Chưa có lượt khám hoàn tất.</p> }

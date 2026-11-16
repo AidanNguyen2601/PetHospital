@@ -1,0 +1,42 @@
+@model List<Species>
+@{
+    ViewData["Title"] = "Loài & giống"; ViewData["Icon"] = "paw";
+    var counts = (Dictionary<int, int>)ViewBag.PetCounts;
+}
+<div class="row g-3">
+    <div class="col-lg-8">
+        @foreach (var s in Model)
+        {
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>@s.Name <span class="text-muted small fw-normal">· @(counts.TryGetValue(s.Id, out var c) ? c : 0) thú cưng</span></span>
+                    <form asp-action="DeleteSpecies" asp-route-id="@s.Id" method="post" data-confirm="Xóa loài @s.Name và các giống?"><button class="btn btn-sm btn-link text-danger p-0">Xóa loài</button></form>
+                </div>
+                <div class="card-body">
+                    @foreach (var b in s.Breeds.OrderBy(x => x.Name))
+                    {
+                        <form asp-action="DeleteBreed" asp-route-id="@b.Id" method="post" class="d-inline-block me-1 mb-1" data-confirm="Xóa giống @b.Name?">
+                            <span class="badge bg-light text-dark border">@b.Name <button class="btn btn-link btn-sm p-0 ms-1 text-danger" style="font-size:.75rem;line-height:1">×</button></span>
+                        </form>
+                    }
+                    <form asp-action="AddBreed" method="post" class="d-flex gap-2 mt-2" style="max-width:420px">
+                        <input type="hidden" name="speciesId" value="@s.Id" />
+                        <input name="name" class="form-control form-control-sm" placeholder="Thêm giống mới…" required />
+                        <button class="btn btn-sm btn-outline-primary">Thêm</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="col-lg-4">
+        <form asp-action="SaveSpecies" method="post" class="card">
+            <div class="card-header">Thêm loài</div>
+            <div class="card-body">
+                <input type="hidden" name="id" value="0" />
+                <label class="form-label">Tên loài</label><input name="name" class="form-control mb-2" required />
+                <label class="form-label">Thứ tự</label><input name="sortOrder" type="number" value="@(Model.Count + 1)" class="form-control mb-2" />
+                <button class="btn btn-primary">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>

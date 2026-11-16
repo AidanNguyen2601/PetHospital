@@ -1,0 +1,61 @@
+@model ReceiptFormModel
+@{
+    ViewData["Title"] = Model.Receipt.Id == 0 ? "Lập phiếu nhập kho" : "Sửa phiếu nhập " + Model.Receipt.Code; ViewData["Icon"] = "download";
+    var productList = (List<Product>)ViewBag.ProductList;
+    var lines = Model.Lines.Count > 0 ? Model.Lines : new List<ReceiptLineInput> { new() };
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Receipt.Id" />
+    <div asp-validation-summary="All" class="alert alert-danger small py-2" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+    <div class="card mb-3">
+        <div class="card-body row g-3">
+            <div class="col-md-2"><label asp-for="Receipt.Date" class="form-label"></label><input asp-for="Receipt.Date" type="date" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="Receipt.Supplier" class="form-label"></label><input asp-for="Receipt.Supplier" class="form-control" /></div>
+            <div class="col-md-2"><label asp-for="Receipt.SupplierInvoiceNo" class="form-label"></label><input asp-for="Receipt.SupplierInvoiceNo" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="Receipt.Note" class="form-label"></label><input asp-for="Receipt.Note" class="form-control" /></div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between"><span>Hàng nhập</span><span>Tổng tiền: <b id="rcTotal">0</b> đ</span></div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 lines-table" data-total="#rcTotal" data-no-grid>
+                <thead><tr><th style="width:34%">Mặt hàng</th><th>Số lô</th><th style="width:14%">Hạn dùng</th><th style="width:10%">Số lượng</th><th style="width:13%">Đơn giá nhập</th><th class="text-end">Thành tiền</th><th></th></tr></thead>
+                <tbody id="rcRows" data-rows="Lines">
+                    @foreach (var l in lines)
+                    {
+                        <tr class="row-item">
+                            <td>
+                                <select data-f="ProductId" class="form-select form-select-sm item-select">
+                                    <option value="">-- Chọn mặt hàng --</option>
+                                    @foreach (var g in productList.GroupBy(p => p.Kind))
+                                    {
+                                        <optgroup label="@g.Key.GetDisplayName()">
+                                            @foreach (var p in g)
+                                            {
+                                                <option value="@p.Id" data-price="@p.CostPrice.ToString("0", inv)" data-stock="@p.Stock.ToQty() @p.Unit" selected="@(p.Id == l.ProductId)">@p.Code – @p.Name (@p.Unit)</option>
+                                            }
+                                        </optgroup>
+                                    }
+                                </select>
+                                <div class="small text-muted stock-hint"></div>
+                            </td>
+                            <td><input data-f="LotNo" class="form-control form-control-sm" value="@l.LotNo" /></td>
+                            <td><input data-f="ExpiryDate" type="date" class="form-control form-control-sm" value="@l.ExpiryDate?.ToString("yyyy-MM-dd")" /></td>
+                            <td><input data-f="Quantity" type="number" step="0.001" min="0" class="form-control form-control-sm qty" value="@l.Quantity.ToString(inv)" data-default="1" /></td>
+                            <td><input data-f="UnitCost" type="number" step="100" min="0" class="form-control form-control-sm price" value="@l.UnitCost.ToString(inv)" /></td>
+                            <td class="text-end amount money">0</td>
+                            <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="Xóa dòng">@Icon("x")</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white"><button type="button" class="btn btn-sm btn-outline-primary" data-add-row="#rcRows">@Icon("plus") Thêm dòng</button></div>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" name="command" value="post" data-confirm="Ghi sổ phiếu nhập? Sau khi ghi sổ không sửa được.">@Icon("check") Lưu &amp; ghi sổ (cộng tồn)</button>
+        <button class="btn btn-outline-primary" name="command" value="draft">Lưu nháp</button>
+        <a class="btn btn-light" asp-action="Index">Hủy</a>
+    </div>
+</form>

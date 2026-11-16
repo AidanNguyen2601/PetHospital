@@ -1,0 +1,56 @@
+@model Appointment
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Đặt lịch hẹn" : "Sửa lịch hẹn " + Model.Code; ViewData["Icon"] = "calendar";
+    var services = (List<ServiceItem>)ViewBag.Services;
+}
+<form asp-action="Save" method="post" class="card" style="max-width:900px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        @if (ViewBag.Force == true) { <input type="hidden" name="force" value="1" /> }
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Khách hàng <span class="text-danger">*</span></label>
+                <input type="hidden" asp-for="OwnerId" />
+                <partial name="_OwnerPicker" model="@(new OwnerPickerModel("#OwnerId", "#PetId", ViewBag.OwnerText as string))" />
+                <span asp-validation-for="OwnerId" class="text-danger small"></span>
+                @if (Me.Has(Perm.CustomerEdit)) { <div class="small mt-1"><a asp-controller="Owners" asp-action="Create" target="_blank">+ Khách hàng mới</a></div> }
+            </div>
+            <div class="col-md-6"><label asp-for="PetId" class="form-label"></label><select asp-for="PetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Pets)"></select><span asp-validation-for="PetId" class="text-danger small"></span></div>
+            <div class="col-md-4"><label asp-for="StartAt" class="form-label"></label><input asp-for="StartAt" type="datetime-local" class="form-control" /><span asp-validation-for="StartAt" class="text-danger small"></span></div>
+            <div class="col-md-2"><label asp-for="DurationMinutes" class="form-label"></label><input asp-for="DurationMinutes" type="number" min="5" step="5" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="VetId" class="form-label"></label><select asp-for="VetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Vets)"></select></div>
+            <div class="col-md-6">
+                <label asp-for="ServiceItemId" class="form-label"></label>
+                <select asp-for="ServiceItemId" class="form-select" id="ServiceItemId">
+                    <option value="">-- Chọn dịch vụ --</option>
+                    @foreach (var g in services.GroupBy(s => s.Kind))
+                    {
+                        <optgroup label="@g.Key.GetDisplayName()">
+                            @foreach (var s in g)
+                            {
+                                <option value="@s.Id" data-minutes="@s.DurationMinutes" selected="@(s.Id == Model.ServiceItemId)">@s.Name – @s.Price.ToMoney()đ</option>
+                            }
+                        </optgroup>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6"><label asp-for="Reason" class="form-label"></label><input asp-for="Reason" class="form-control" /></div>
+            <div class="col-12"><label asp-for="Note" class="form-label"></label><textarea asp-for="Note" class="form-control" rows="2"></textarea></div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Lưu lịch hẹn</button>
+        <a class="btn btn-light" asp-action="Index" asp-route-date="@Model.StartAt.ToString("yyyy-MM-dd")">Hủy</a>
+    </div>
+</form>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('ServiceItemId').addEventListener('change', function () {
+            var m = this.selectedOptions[0] && this.selectedOptions[0].dataset.minutes;
+            if (m) document.getElementById('DurationMinutes').value = m;
+        });
+    </script>
+}

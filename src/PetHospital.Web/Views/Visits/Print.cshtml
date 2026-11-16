@@ -1,0 +1,41 @@
+@model Visit
+@{
+    var v = Model;
+    ViewData["Title"] = "Phiếu khám & đơn thuốc " + v.Code;
+    var vaccinations = (List<Vaccination>)ViewBag.Vaccinations;
+    var i = 0;
+}
+<partial name="_PrintHeader" model="@(ViewBag.Settings as SettingsService)" />
+<h4 class="text-center fw-bold my-3">PHIẾU KHÁM BỆNH &amp; ĐƠN THUỐC</h4>
+<div class="text-center small mb-3">Số: @v.Code · Ngày @v.VisitAt.ToString("dd/MM/yyyy HH:mm")</div>
+<table class="table table-sm table-bordered">
+    <tr><th style="width:18%">Chủ nuôi</th><td>@v.Owner?.FullName</td><th style="width:15%">Điện thoại</th><td>@v.Owner?.Phone</td></tr>
+    <tr><th>Thú cưng</th><td>@v.Pet?.Name (@v.Pet?.Code) – @v.Pet?.Species?.Name @v.Pet?.Breed?.Name</td><th>Giới / tuổi</th><td>@v.Pet?.Gender.GetDisplayName() · @v.Pet?.AgeText</td></tr>
+    <tr><th>Sinh hiệu</th><td colspan="3">Cân nặng @v.WeightKg.ToQty() kg · Nhiệt độ @v.Temperature.ToQty() °C · Nhịp tim @v.HeartRate · Nhịp thở @v.RespiratoryRate</td></tr>
+    <tr><th>Lý do khám</th><td colspan="3">@v.Reason</td></tr>
+    <tr><th>Chẩn đoán</th><td colspan="3" class="fw-semibold">@v.Diagnosis</td></tr>
+    <tr><th>Hướng điều trị</th><td colspan="3">@v.Treatment</td></tr>
+</table>
+@if (v.Medicines.Count > 0)
+{
+    <h6 class="fw-bold mt-3">ĐƠN THUỐC</h6>
+    <table class="table table-sm table-bordered">
+        <thead><tr><th style="width:5%">TT</th><th>Tên thuốc</th><th style="width:12%" class="text-end">Số lượng</th><th>Cách dùng</th><th style="width:10%" class="text-end">Số ngày</th></tr></thead>
+        <tbody>
+            @foreach (var m in v.Medicines) { <tr><td>@(++i)</td><td>@m.Product?.Name</td><td class="text-end">@m.Quantity.ToQty() @m.Product?.Unit</td><td>@m.Dosage</td><td class="text-end">@m.Days</td></tr> }
+        </tbody>
+    </table>
+}
+@if (vaccinations.Count > 0)
+{
+    <h6 class="fw-bold mt-3">TIÊM PHÒNG</h6>
+    <table class="table table-sm table-bordered">
+        <thead><tr><th>Vắc-xin</th><th>Mũi</th><th>Số lô</th><th>Hẹn mũi tiếp theo</th></tr></thead>
+        <tbody>@foreach (var x in vaccinations) { <tr><td>@x.VaccineName</td><td>@x.DoseNumber</td><td>@x.LotNo</td><td>@x.NextDueDate.ToDate()</td></tr> }</tbody>
+    </table>
+}
+<p><b>Lời dặn:</b> @v.Advice</p>
+@if (v.FollowUpDate.HasValue) { <p><b>Hẹn tái khám:</b> @v.FollowUpDate.ToDate()</p> }
+<table class="w-100 mt-4 text-center">
+    <tr><td style="width:50%"></td><td><div class="fst-italic small">Ngày @v.VisitAt.Day tháng @v.VisitAt.Month năm @v.VisitAt.Year</div><div class="fw-bold">BÁC SĨ ĐIỀU TRỊ</div><div class="sign-space" style="height:70px"></div><div class="fw-semibold">@v.Vet?.DisplayName</div></td></tr>
+</table>

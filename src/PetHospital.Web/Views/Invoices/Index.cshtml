@@ -1,0 +1,53 @@
+@model PagedList<Invoice>
+@{
+    ViewData["Title"] = "Hóa đơn"; ViewData["Icon"] = "receipt";
+    string tab = ViewBag.Tab; var f = (ListFilter)ViewBag.Filter; DateTime? from = ViewBag.From, to = ViewBag.To; InvoiceStatus? status = ViewBag.Status;
+    decimal sumTotal = ViewBag.SumTotal, sumPaid = ViewBag.SumPaid;
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(tab == "pending" ? "active" : "")" asp-route-tab="pending">Chờ thu tiền</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "all" ? "active" : "")" asp-route-tab="all">Tất cả hóa đơn</a></li>
+    @if (Me.Has(Perm.InvoiceManage)) { <li class="nav-item ms-auto"><a class="btn btn-sm btn-primary" asp-action="Create">@Icon("plus") Bán hàng / lập hóa đơn</a></li> }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="tab" value="@tab" />
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:260px" placeholder="Số HĐ, khách hàng, SĐT, thú cưng…" />
+    @if (tab == "all")
+    {
+        <select name="status" class="form-select form-select-sm" style="max-width:190px" asp-items="@(FormatExtensions.EnumOptions<InvoiceStatus>(status, true))"></select>
+        <input type="date" name="from" value="@from?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+        <input type="date" name="to" value="@to?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+    }
+    <button class="btn btn-sm btn-outline-secondary">Lọc</button>
+    <a class="btn btn-sm btn-outline-secondary ms-auto" asp-route-tab="@tab" asp-route-q="@f.Q" asp-route-status="@status" asp-route-from="@from?.ToString("yyyy-MM-dd")" asp-route-to="@to?.ToString("yyyy-MM-dd")" asp-route-export="xlsx">@Icon("download") Excel</a>
+</form>
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card stat"><div class="label">Tổng tiền (đã phát hành)</div><div class="value money">@sumTotal.ToMoney()</div></div></div>
+    <div class="col-md-4"><div class="card stat"><div class="label">Đã thu</div><div class="value money text-success">@sumPaid.ToMoney()</div></div></div>
+    <div class="col-md-4"><div class="card stat"><div class="label">Còn phải thu</div><div class="value money text-danger">@((sumTotal - sumPaid).ToMoney())</div></div></div>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Số HĐ</th><th>Ngày</th><th>Khách hàng</th><th>Thú cưng</th><th class="text-end">Tổng tiền</th><th class="text-end">Đã thu</th><th class="text-end">Còn lại</th><th>Trạng thái</th><th>Người lập</th></tr></thead>
+            <tbody>
+                @foreach (var i in Model.Items)
+                {
+                    <tr class="@(i.Status == InvoiceStatus.Cancelled ? "text-muted text-decoration-line-through" : "")">
+                        <td><a asp-action="Details" asp-route-id="@i.Id" class="fw-semibold">@i.Code</a></td>
+                        <td class="small text-nowrap">@i.Date.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>@(i.Owner?.FullName ?? i.CustomerName)<div class="small text-muted">@i.Owner?.Phone</div></td>
+                        <td>@i.Pet?.Name</td>
+                        <td class="text-end money">@i.Total.ToMoney()</td>
+                        <td class="text-end money">@i.Paid.ToMoney()</td>
+                        <td class="text-end money @(i.Balance > 0 && i.Status != InvoiceStatus.Cancelled ? "text-danger" : "")">@(i.Status is InvoiceStatus.Cancelled ? "" : i.Balance.ToMoney())</td>
+                        <td><span class="badge bg-@Badges.For(i.Status)">@i.Status.GetDisplayName()</span></td>
+                        <td class="small text-muted">@i.CreatedBy?.FullName</td>
+                    </tr>
+                }
+                @if (Model.Items.Count == 0) { <tr><td colspan="9" class="text-muted p-3">Không có hóa đơn.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

@@ -1,0 +1,41 @@
+@model Admission
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Nhận lưu chuồng / nằm viện" : "Sửa phiếu " + Model.Code; ViewData["Icon"] = "bed";
+    var rates = System.Text.Json.JsonSerializer.Serialize(((Dictionary<int, decimal>)ViewBag.CageRates).ToDictionary(x => x.Key.ToString(), x => x.Value));
+}
+<form asp-action="Save" method="post" class="card" style="max-width:900px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="VisitId" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            @if (Model.Id == 0)
+            {
+                <div class="col-md-6">
+                    <label class="form-label">Khách hàng <span class="text-danger">*</span></label>
+                    <input type="hidden" asp-for="OwnerId" />
+                    <partial name="_OwnerPicker" model="@(new OwnerPickerModel("#OwnerId", "#PetId", ViewBag.OwnerText as string))" />
+                </div>
+                <div class="col-md-6"><label asp-for="PetId" class="form-label"></label><select asp-for="PetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Pets)"></select><span asp-validation-for="PetId" class="text-danger small"></span></div>
+            }
+            else
+            {
+                <input type="hidden" asp-for="OwnerId" />
+                <input type="hidden" asp-for="PetId" />
+            }
+            <div class="col-md-4"><label asp-for="Kind" class="form-label"></label><select asp-for="Kind" class="form-select" asp-items="@(FormatExtensions.EnumOptions<AdmissionKind>(Model.Kind))"></select></div>
+            <div class="col-md-4"><label asp-for="CageId" class="form-label"></label><select asp-for="CageId" class="form-select" data-rates="@rates" asp-items="@((List<SelectListItem>)ViewBag.Cages)"><option value="">-- Chọn chuồng --</option></select><span asp-validation-for="CageId" class="text-danger small"></span></div>
+            <div class="col-md-4"><label asp-for="DailyRate" class="form-label"></label><input asp-for="DailyRate" type="number" step="1000" min="0" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="VetId" class="form-label"></label><select asp-for="VetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Vets)"></select></div>
+            <div class="col-md-4"><label asp-for="ExpectedDischarge" class="form-label"></label><input asp-for="ExpectedDischarge" type="date" class="form-control" /></div>
+            <div class="col-12"><label asp-for="Reason" class="form-label"></label><input asp-for="Reason" class="form-control" /></div>
+            <div class="col-12"><label asp-for="CareNote" class="form-label"></label><textarea asp-for="CareNote" class="form-control" rows="2"></textarea></div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Lưu</button>
+        <a class="btn btn-light" href="javascript:history.back()">Hủy</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

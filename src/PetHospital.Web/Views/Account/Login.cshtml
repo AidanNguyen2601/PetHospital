@@ -1,0 +1,40 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+    Layout = "_AuthLayout";
+}
+<div class="auth-card">
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="auth-logo">@Icon("paw")</span>
+        <h3 class="mb-0 fw-bold">PetCare</h3>
+    </div>
+    <p class="text-muted mb-4">Phần mềm quản lý phòng khám thú y</p>
+    <form asp-action="Login" method="post">
+        <input type="hidden" asp-for="ReturnUrl" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="mb-3">
+            <label asp-for="Username" class="form-label"></label>
+            <input asp-for="Username" class="form-control" autofocus autocomplete="username" />
+            <span asp-validation-for="Username" class="text-danger small"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="text-danger small"></span>
+        </div>
+        <div class="form-check mb-3">
+            <input asp-for="RememberMe" class="form-check-input" />
+            <label asp-for="RememberMe" class="form-check-label"></label>
+        </div>
+        <button class="btn btn-primary w-100">Đăng nhập</button>
+    </form>
+    <details class="mt-4 small text-muted">
+        <summary>Tài khoản dùng thử</summary>
+        <div class="mt-2">
+            <b>admin</b>/Admin@@123 – Quản trị<br />
+            Mật khẩu chung <b>Pet@@123</b>: <b>quanly</b> (Quản lý + bác sĩ), <b>bs.an</b>, <b>bs.binh</b>, <b>bs.chau</b> (Bác sĩ),
+            <b>letan</b> (Lễ tân), <b>thungan</b> (Thu ngân), <b>kho</b> (Kho / Dược)
+        </div>
+    </details>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

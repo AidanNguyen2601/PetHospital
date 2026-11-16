@@ -1,0 +1,33 @@
+@model PagedList<StockReceipt>
+@{
+    ViewData["Title"] = "Phiếu nhập kho"; ViewData["Icon"] = "download";
+    var f = (ListFilter)ViewBag.Filter;
+}
+<form method="get" class="toolbar">
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:280px" placeholder="Số phiếu, nhà cung cấp, số HĐ NCC…" />
+    <button class="btn btn-sm btn-outline-secondary">Tìm</button>
+    @if (Me.Has(Perm.StockManage)) { <a class="btn btn-sm btn-primary ms-auto" asp-action="Create">@Icon("plus") Lập phiếu nhập</a> }
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Số phiếu</th><th>Ngày nhập</th><th>Nhà cung cấp</th><th>Số HĐ NCC</th>@if (Me.CanSeeCost) { <th class="text-end">Tổng tiền</th> }<th>Trạng thái</th><th>Người lập</th></tr></thead>
+            <tbody>
+                @foreach (var r in Model.Items)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@r.Id" class="fw-semibold">@r.Code</a></td>
+                        <td>@r.Date.ToDate()</td>
+                        <td>@r.Supplier</td>
+                        <td class="small">@r.SupplierInvoiceNo</td>
+                        @if (Me.CanSeeCost) { <td class="text-end money">@r.Total.ToMoney()</td> }
+                        <td><span class="badge bg-@Badges.For(r.State)">@r.State.GetDisplayName()</span></td>
+                        <td class="small text-muted">@r.CreatedBy?.FullName</td>
+                    </tr>
+                }
+                @if (Model.Items.Count == 0) { <tr><td colspan="7" class="text-muted p-3">Chưa có phiếu nhập.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

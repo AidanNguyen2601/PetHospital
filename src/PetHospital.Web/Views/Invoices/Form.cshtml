@@ -1,0 +1,88 @@
+@model InvoiceFormModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Bán hàng / lập hóa đơn" : "Sửa hóa đơn nháp " + ViewBag.Code; ViewData["Icon"] = "cart";
+    var serviceList = (List<ServiceItem>)ViewBag.ServiceList; var productList = (List<Product>)ViewBag.ProductList;
+    var lines = Model.Lines.Count > 0 ? Model.Lines : new List<InvoiceLineInput> { new() };
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="All" class="alert alert-danger small py-2" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+    <div class="row g-3">
+        <div class="col-xl-9">
+            <div class="card mb-3">
+                <div class="card-body row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label">Khách hàng (bỏ trống nếu khách lẻ)</label>
+                        <input type="hidden" asp-for="OwnerId" />
+                        <partial name="_OwnerPicker" model="@(new OwnerPickerModel("#OwnerId", "#PetId", ViewBag.OwnerText as string))" />
+                    </div>
+                    <div class="col-md-3"><label class="form-label">Thú cưng</label><select asp-for="PetId" class="form-select" asp-items="@((List<SelectListItem>)ViewBag.Pets)"></select></div>
+                    <div class="col-md-4"><label class="form-label">Tên khách lẻ</label><input asp-for="CustomerName" class="form-control" placeholder="Khách lẻ" /></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 lines-table" data-total="#subTotal" data-grand data-no-grid>
+                        <thead><tr><th style="width:34%">Dịch vụ / thuốc / hàng hóa</th><th>Diễn giải</th><th style="width:8%">ĐVT</th><th style="width:9%">SL</th><th style="width:13%">Đơn giá</th><th class="text-end">Thành tiền</th><th></th></tr></thead>
+                        <tbody id="invRows" data-rows="Lines">
+                            @foreach (var l in lines)
+                            {
+                                <tr class="row-item">
+                                    <td>
+                                        <select data-f="Item" class="form-select form-select-sm item-select">
+                                            <option value="">-- Dòng khác (nhập tay) --</option>
+                                            <optgroup label="Dịch vụ">
+                                                @foreach (var s in serviceList)
+                                                {
+                                                    var key = "S:" + s.Id;
+                                                    <option value="@key" data-price="@s.Price.ToString(inv)" data-unit="@s.Unit" data-name="@s.Name" selected="@(key == l.Item)">@s.Name – @s.Price.ToMoney()</option>
+                                                }
+                                            </optgroup>
+                                            @foreach (var g in productList.GroupBy(p => p.Kind))
+                                            {
+                                                <optgroup label="@g.Key.GetDisplayName()">
+                                                    @foreach (var p in g)
+                                                    {
+                                                        var key = "P:" + p.Id;
+                                                        <option value="@key" data-price="@p.SalePrice.ToString(inv)" data-unit="@p.Unit" data-name="@p.Name" data-stock="@p.Stock.ToQty() @p.Unit" selected="@(key == l.Item)">@p.Name – @p.SalePrice.ToMoney() (tồn @p.Stock.ToQty())</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                        </select>
+                                        <div class="small text-muted stock-hint"></div>
+                                    </td>
+                                    <td><input data-f="Description" class="form-control form-control-sm desc" value="@l.Description" /></td>
+                                    <td><input data-f="Unit" class="form-control form-control-sm unit" value="@l.Unit" /></td>
+                                    <td><input data-f="Quantity" type="number" step="0.5" min="0.5" class="form-control form-control-sm qty" value="@l.Quantity.ToString(inv)" data-default="1" /></td>
+                                    <td><input data-f="UnitPrice" type="number" step="500" min="0" class="form-control form-control-sm price" value="@l.UnitPrice.ToString(inv)" /></td>
+                                    <td class="text-end amount money">0</td>
+                                    <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="Xóa dòng">@Icon("x")</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white"><button type="button" class="btn btn-sm btn-outline-primary" data-add-row="#invRows">@Icon("plus") Thêm dòng</button></div>
+            </div>
+        </div>
+        <div class="col-xl-3">
+            <div class="card">
+                <div class="card-body total-box">
+                    <div class="d-flex justify-content-between mb-2"><span>Tạm tính</span><b id="subTotal">0</b></div>
+                    <div class="d-flex justify-content-between align-items-center mb-2"><span>Giảm giá</span><input asp-for="Discount" id="Discount" type="number" step="1000" min="0" class="form-control form-control-sm text-end" style="max-width:140px" /></div>
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-center"><span>Khách phải trả</span><span class="grand" id="grandTotal">0</span></div>
+                    <label class="form-label small mt-3">Ghi chú</label>
+                    <textarea asp-for="Note" class="form-control form-control-sm" rows="2"></textarea>
+                </div>
+                <div class="card-footer bg-white d-grid gap-2">
+                    <button class="btn btn-primary" name="command" value="issue">@Icon("check") Lưu &amp; phát hành</button>
+                    <button class="btn btn-outline-primary" name="command" value="draft">Lưu nháp</button>
+                    <a class="btn btn-light" asp-action="Index">Hủy</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

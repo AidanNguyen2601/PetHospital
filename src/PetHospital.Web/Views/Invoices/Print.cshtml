@@ -1,0 +1,70 @@
+@model Invoice
+@{
+    var i = Model;
+    ViewData["Title"] = "Hóa đơn " + i.Code;
+    var s = (SettingsService)ViewBag.Settings; string size = ViewBag.Size;
+    var no = 0;
+}
+@if (size == "k80")
+{
+    <style>@@page { size: 80mm auto; margin: 2mm; } .paper { width: auto !important; padding: 0 !important; box-shadow: none !important; }</style>
+    <div class="receipt-k80">
+        <div class="text-center fw-bold text-uppercase">@await s.GetAsync(SettingsService.ClinicName)</div>
+        <div class="text-center">@await s.GetAsync(SettingsService.ClinicAddress)</div>
+        <div class="text-center">ĐT: @await s.GetAsync(SettingsService.ClinicPhone)</div>
+        <hr class="my-1" />
+        <div class="text-center fw-bold">HÓA ĐƠN BÁN HÀNG</div>
+        <div>Số: @i.Code · @((i.IssuedAt ?? i.Date).ToString("dd/MM/yyyy HH:mm"))</div>
+        <div>KH: @(i.Owner?.FullName ?? i.CustomerName) @i.Owner?.Phone</div>
+        @if (i.Pet != null) { <div>Thú cưng: @i.Pet.Name</div> }
+        <hr class="my-1" />
+        <table class="w-100">
+            @foreach (var l in i.Lines.OrderBy(x => x.Id))
+            {
+                <tr><td colspan="3">@l.Description</td></tr>
+                <tr><td>@l.Quantity.ToQty() x @l.UnitPrice.ToMoney()</td><td></td><td class="text-end">@l.Amount.ToMoney()</td></tr>
+            }
+        </table>
+        <hr class="my-1" />
+        <table class="w-100">
+            <tr><td>Tạm tính</td><td class="text-end">@i.SubTotal.ToMoney()</td></tr>
+            @if (i.Discount > 0) { <tr><td>Giảm giá</td><td class="text-end">-@i.Discount.ToMoney()</td></tr> }
+            <tr class="fw-bold"><td>TỔNG CỘNG</td><td class="text-end">@i.Total.ToMoney()</td></tr>
+            <tr><td>Đã thanh toán</td><td class="text-end">@i.Paid.ToMoney()</td></tr>
+            @if (i.Balance > 0) { <tr><td>Còn nợ</td><td class="text-end">@i.Balance.ToMoney()</td></tr> }
+        </table>
+        <hr class="my-1" />
+        <div class="text-center fst-italic">@await s.GetAsync(SettingsService.InvoiceFooter)</div>
+    </div>
+}
+else
+{
+    <partial name="_PrintHeader" model="s" />
+    <h4 class="text-center fw-bold my-2">HÓA ĐƠN BÁN HÀNG – DỊCH VỤ</h4>
+    <div class="text-center small mb-3">Số: @i.Code · Ngày @((i.IssuedAt ?? i.Date).ToString("dd/MM/yyyy HH:mm")) @(i.Status == InvoiceStatus.Cancelled ? "· ĐÃ HỦY" : "")</div>
+    <table class="table table-sm table-borderless mb-2">
+        <tr><td style="width:18%">Khách hàng:</td><td><b>@(i.Owner?.FullName ?? i.CustomerName)</b></td><td style="width:15%">Điện thoại:</td><td>@i.Owner?.Phone</td></tr>
+        <tr><td>Địa chỉ:</td><td>@i.Owner?.Address</td><td>Thú cưng:</td><td>@i.Pet?.Name</td></tr>
+    </table>
+    <table class="table table-sm table-bordered">
+        <thead><tr><th style="width:5%">TT</th><th>Nội dung</th><th style="width:9%">ĐVT</th><th style="width:9%" class="text-end">SL</th><th style="width:14%" class="text-end">Đơn giá</th><th style="width:16%" class="text-end">Thành tiền</th></tr></thead>
+        <tbody>
+            @foreach (var l in i.Lines.OrderBy(x => x.Id))
+            {
+                no++;
+                <tr><td>@no</td><td>@l.Description</td><td>@l.Unit</td><td class="text-end">@l.Quantity.ToQty()</td><td class="text-end">@l.UnitPrice.ToMoney()</td><td class="text-end">@l.Amount.ToMoney()</td></tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5" class="text-end">Tạm tính</td><td class="text-end">@i.SubTotal.ToMoney()</td></tr>
+            @if (i.Discount > 0) { <tr><td colspan="5" class="text-end">Giảm giá</td><td class="text-end">-@i.Discount.ToMoney()</td></tr> }
+            <tr class="fw-bold"><td colspan="5" class="text-end">Tổng cộng</td><td class="text-end">@i.Total.ToMoney()</td></tr>
+            <tr><td colspan="5" class="text-end">Đã thanh toán</td><td class="text-end">@i.Paid.ToMoney()</td></tr>
+            <tr><td colspan="5" class="text-end">Còn phải thanh toán</td><td class="text-end">@(i.Status == InvoiceStatus.Cancelled ? "0" : i.Balance.ToMoney())</td></tr>
+        </tfoot>
+    </table>
+    <p class="fst-italic text-center">@await s.GetAsync(SettingsService.InvoiceFooter)</p>
+    <table class="w-100 mt-3 text-center">
+        <tr><td><b>Khách hàng</b><div class="small fst-italic">(Ký, ghi rõ họ tên)</div></td><td><b>Người lập hóa đơn</b><div class="small fst-italic">(Ký, ghi rõ họ tên)</div><div style="height:60px"></div>@i.CreatedBy?.FullName</td></tr>
+    </table>
+}

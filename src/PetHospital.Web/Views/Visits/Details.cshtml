@@ -1,0 +1,95 @@
+@model Visit
+@{
+    var v = Model;
+    ViewData["Title"] = "Phiếu khám " + v.Code; ViewData["Icon"] = "stethoscope";
+    var vaccinations = (List<Vaccination>)ViewBag.Vaccinations; var invoice = ViewBag.Invoice as Invoice; var admission = ViewBag.Admission as Admission;
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (v.Status is VisitStatus.Waiting or VisitStatus.InProgress && Me.Has(Perm.VisitExam))
+    {
+        <form asp-action="Start" asp-route-id="@v.Id" method="post"><button class="btn btn-sm btn-primary">@Icon("stethoscope") Khám bệnh</button></form>
+    }
+    <a class="btn btn-sm btn-outline-secondary" asp-action="Print" asp-route-id="@v.Id" target="_blank">@Icon("print") In phiếu khám / đơn thuốc</a>
+    @if (invoice != null && Me.HasAny(Perm.InvoiceView, Perm.InvoiceManage))
+    {
+        <a class="btn btn-sm btn-outline-primary" asp-controller="Invoices" asp-action="Details" asp-route-id="@invoice.Id">@Icon("receipt") Hóa đơn @invoice.Code <span class="badge bg-@Badges.For(invoice.Status)">@invoice.Status.GetDisplayName()</span></a>
+    }
+    @if (admission != null) { <a class="btn btn-sm btn-outline-primary" asp-controller="Admissions" asp-action="Details" asp-route-id="@admission.Id">@Icon("bed") Nội trú @admission.Code</a> }
+    else if (v.Status == VisitStatus.Completed && Me.Has(Perm.Admission)) { <a class="btn btn-sm btn-outline-secondary" asp-controller="Admissions" asp-action="Create" asp-route-visitId="@v.Id">@Icon("bed") Chuyển nằm viện</a> }
+    @if (v.Status == VisitStatus.Completed && Me.Has(Perm.VisitExam) && (invoice == null || invoice.Status == InvoiceStatus.Draft || invoice.Status == InvoiceStatus.Cancelled))
+    {
+        <form asp-action="Reopen" asp-route-id="@v.Id" method="post" class="ms-auto" data-confirm="Mở lại phiếu khám để sửa? Hóa đơn nháp (nếu có) sẽ bị xóa và lập lại khi kết thúc khám."><button class="btn btn-sm btn-outline-warning">@Icon("undo") Mở lại để sửa</button></form>
+    }
+</div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between"><span>Thông tin khám</span><span class="badge bg-@Badges.For(v.Status)">@v.Status.GetDisplayName()</span></div>
+            <div class="card-body">
+                <div class="vitals mb-3 small">
+                    <div><div class="text-muted">Cân nặng</div><b>@(v.WeightKg.HasValue ? v.WeightKg.Value.ToQty() + " kg" : "–")</b></div>
+                    <div><div class="text-muted">Nhiệt độ</div><b>@(v.Temperature.HasValue ? v.Temperature.Value.ToQty() + " °C" : "–")</b></div>
+                    <div><div class="text-muted">Nhịp tim</div><b>@(v.HeartRate?.ToString() ?? "–")</b></div>
+                    <div><div class="text-muted">Nhịp thở</div><b>@(v.RespiratoryRate?.ToString() ?? "–")</b></div>
+                </div>
+                <dl class="info row mb-0">
+                    <dt class="col-sm-3">Lý do khám</dt><dd class="col-sm-9">@v.Reason</dd>
+                    <dt class="col-sm-3">Triệu chứng</dt><dd class="col-sm-9 pre">@v.Symptoms</dd>
+                    <dt class="col-sm-3">Khám lâm sàng</dt><dd class="col-sm-9 pre">@v.Examination</dd>
+                    <dt class="col-sm-3">Chẩn đoán</dt><dd class="col-sm-9 fw-semibold">@v.Diagnosis</dd>
+                    <dt class="col-sm-3">Hướng điều trị</dt><dd class="col-sm-9 pre">@v.Treatment</dd>
+                    <dt class="col-sm-3">Lời dặn</dt><dd class="col-sm-9">@v.Advice</dd>
+                    <dt class="col-sm-3">Hẹn tái khám</dt><dd class="col-sm-9">@v.FollowUpDate.ToDate()</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Dịch vụ</div>
+            <table class="table table-sm mb-0" data-no-grid>
+                <thead><tr><th>Dịch vụ</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th><th>Ghi chú</th></tr></thead>
+                <tbody>
+                    @foreach (var s in v.Services) { <tr><td>@s.ServiceItem?.Name</td><td class="text-end">@s.Quantity.ToQty()</td><td class="text-end money">@s.UnitPrice.ToMoney()</td><td class="text-end money">@((s.Quantity * s.UnitPrice).ToMoney())</td><td class="small">@s.Note</td></tr> }
+                    @if (v.Services.Count == 0) { <tr><td colspan="5" class="text-muted small">Không có.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Đơn thuốc</div>
+            <table class="table table-sm mb-0" data-no-grid>
+                <thead><tr><th>Thuốc</th><th class="text-end">SL</th><th>Liều dùng</th><th class="text-end">Số ngày</th><th class="text-end">Thành tiền</th></tr></thead>
+                <tbody>
+                    @foreach (var m in v.Medicines) { <tr><td>@m.Product?.Name</td><td class="text-end">@m.Quantity.ToQty() @m.Product?.Unit</td><td class="small">@m.Dosage</td><td class="text-end">@m.Days</td><td class="text-end money">@((m.Quantity * m.UnitPrice).ToMoney())</td></tr> }
+                    @if (v.Medicines.Count == 0) { <tr><td colspan="5" class="text-muted small">Không có.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <div class="card-header">Tiêm phòng</div>
+            <table class="table table-sm mb-0" data-no-grid>
+                <thead><tr><th>Vắc-xin</th><th>Mũi</th><th>Số lô</th><th>Hẹn mũi tiếp</th></tr></thead>
+                <tbody>
+                    @foreach (var x in vaccinations) { <tr><td>@x.VaccineName</td><td>@x.DoseNumber</td><td>@x.LotNo</td><td>@x.NextDueDate.ToDate()</td></tr> }
+                    @if (vaccinations.Count == 0) { <tr><td colspan="4" class="text-muted small">Không có.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex gap-3 align-items-center mb-3">
+                    <span class="pet-avatar lg @(v.Pet?.Species?.Name == "Mèo" ? "cat" : "")">@Icon("paw")</span>
+                    <div><a asp-controller="Pets" asp-action="Details" asp-route-id="@v.PetId" class="fs-5 fw-bold">@v.Pet?.Name</a><div class="small text-muted">@v.Pet?.Species?.Name @v.Pet?.Breed?.Name · @v.Pet?.AgeText</div></div>
+                </div>
+                @if (!string.IsNullOrEmpty(v.Pet?.Allergies)) { <div class="allergy mb-2">@Icon("alert") @v.Pet.Allergies</div> }
+                <dl class="info row mb-0 small">
+                    <dt class="col-5">Chủ nuôi</dt><dd class="col-7"><a asp-controller="Owners" asp-action="Details" asp-route-id="@v.OwnerId">@v.Owner?.FullName</a><br />@v.Owner?.Phone</dd>
+                    <dt class="col-5">Bác sĩ</dt><dd class="col-7">@v.Vet?.DisplayName</dd>
+                    <dt class="col-5">Tiếp nhận</dt><dd class="col-7">@v.VisitAt.ToDateTime()</dd>
+                    <dt class="col-5">Bắt đầu khám</dt><dd class="col-7">@v.StartedAt.ToDateTime()</dd>
+                    <dt class="col-5">Kết thúc</dt><dd class="col-7">@v.CompletedAt.ToDateTime()</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>

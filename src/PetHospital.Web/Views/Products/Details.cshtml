@@ -1,0 +1,104 @@
+@model Product
+@{
+    var p = Model;
+    ViewData["Title"] = p.Name; ViewData["Icon"] = "pill";
+    var batches = (List<ProductBatch>)ViewBag.Batches; var moves = (List<StockMove>)ViewBag.Moves; DateTime from = ViewBag.From; DateTime warn = ViewBag.Warn;
+    var cost = Me.CanSeeCost;
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (Me.Has(Perm.StockManage))
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@p.Id">@Icon("edit") Sửa</a>
+        <a class="btn btn-sm btn-outline-primary" asp-controller="Receipts" asp-action="Create">@Icon("download") Nhập kho</a>
+        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#adjustBox">@Icon("edit") Điều chỉnh tồn (kiểm kê)</button>
+    }
+</div>
+@if (Me.Has(Perm.StockManage))
+{
+    <div class="collapse mb-3" id="adjustBox">
+        <form asp-action="Adjust" asp-route-id="@p.Id" method="post" class="card card-body row g-2 m-0" data-confirm="Xác nhận điều chỉnh tồn kho?">
+            <div class="col-md-2"><label class="form-label small">Tồn thực tế</label><input name="actual" type="number" step="0.001" min="0" value="@p.Stock.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control form-control-sm" required /></div>
+            <div class="col-md-2"><label class="form-label small">Số lô (nếu tăng)</label><input name="lotNo" class="form-control form-control-sm" /></div>
+            <div class="col-md-2"><label class="form-label small">Hạn dùng (nếu tăng)</label><input name="expiry" type="date" class="form-control form-control-sm" /></div>
+            <div class="col-md-4"><label class="form-label small">Lý do</label><input name="reason" class="form-control form-control-sm" placeholder="Kiểm kê cuối tháng / hàng vỡ / hết hạn…" required /></div>
+            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-sm btn-warning w-100">Điều chỉnh</button></div>
+            <div class="col-12 small text-muted">Tồn sổ sách hiện tại: @p.Stock.ToQty() @p.Unit. Giảm tồn sẽ xuất theo lô hạn gần nhất trước.</div>
+        </form>
+    </div>
+}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <dl class="info row mb-0">
+                    <dt class="col-5">Mã</dt><dd class="col-7">@p.Code @if (!p.IsActive) { <span class="badge bg-secondary">Ngừng</span> }</dd>
+                    <dt class="col-5">Loại</dt><dd class="col-7">@p.Kind.GetDisplayName()</dd>
+                    <dt class="col-5">Hoạt chất</dt><dd class="col-7">@p.Ingredient</dd>
+                    <dt class="col-5">Tồn kho</dt><dd class="col-7 fw-bold fs-5 @(p.Stock <= p.MinStock ? "text-danger" : "")">@p.Stock.ToQty() @p.Unit</dd>
+                    <dt class="col-5">Tồn tối thiểu</dt><dd class="col-7">@p.MinStock.ToQty()</dd>
+                    <dt class="col-5">Giá bán</dt><dd class="col-7 money">@p.SalePrice.ToMoney()</dd>
+                    @if (cost) { <dt class="col-5">Giá vốn BQ</dt><dd class="col-7 money">@p.CostPrice.ToMoney()</dd> }
+                    @if (p.Kind == ProductKind.Vaccine) { <dt class="col-5">Nhắc lại sau</dt><dd class="col-7">@p.BoosterDays ngày</dd> }
+                    <dt class="col-5">Cách dùng</dt><dd class="col-7 small">@p.DefaultUsage</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Lô còn hàng (xuất theo hạn gần nhất trước)</div>
+            <table class="table table-sm mb-0" data-no-grid>
+                <thead><tr><th>Số lô</th><th>Hạn dùng</th><th class="text-end">Còn</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var b in batches)
+                    {
+                        var expired = b.ExpiryDate < DateTime.Today;
+                        <tr>
+                            <td class="small">@b.LotNo</td>
+                            <td class="small @(expired ? "text-danger fw-semibold" : b.ExpiryDate <= warn ? "text-warning fw-semibold" : "")">@b.ExpiryDate.ToDate()</td>
+                            <td class="text-end">@b.Quantity.ToQty()</td>
+                            <td class="text-end">
+                                @if (Me.Has(Perm.StockManage) && b.ExpiryDate <= warn)
+                                {
+                                    <form asp-action="DisposeBatch" asp-route-id="@p.Id" asp-route-batchId="@b.Id" method="post" data-confirm="Xuất hủy toàn bộ lô này?"><button class="btn btn-sm btn-link text-danger p-0">Xuất hủy</button></form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (batches.Count == 0) { <tr><td colspan="4" class="text-muted small">Không còn lô nào.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Thẻ kho</span>
+                <form method="get" class="d-flex gap-2 align-items-center"><span class="small text-muted">Từ</span><input type="date" name="from" value="@from.ToString("yyyy-MM-dd")" class="form-control form-control-sm" onchange="this.form.submit()" /></form>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <thead><tr><th>Thời gian</th><th>Loại</th><th>Chứng từ</th><th>Lô</th><th class="text-end">SL</th><th class="text-end">Tồn sau</th>@if (cost) { <th class="text-end">Đơn giá vốn</th> }<th>Ghi chú</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in moves)
+                        {
+                            <tr>
+                                <td class="small text-nowrap">@m.At.ToString("dd/MM/yy HH:mm")</td>
+                                <td><span class="badge bg-@Badges.For(m.Type)">@m.Type.GetDisplayName()</span></td>
+                                <td class="small">
+                                    @if (m.RefType == "Invoice" && m.RefId > 0) { <a asp-controller="Invoices" asp-action="Details" asp-route-id="@m.RefId">@m.RefCode</a> }
+                                    else if (m.RefType == "StockReceipt" && m.RefId > 0) { <a asp-controller="Receipts" asp-action="Details" asp-route-id="@m.RefId">@m.RefCode</a> }
+                                    else { @m.RefCode }
+                                </td>
+                                <td class="small">@m.Batch?.LotNo</td>
+                                <td class="text-end fw-semibold @(m.Quantity < 0 ? "text-danger" : "text-success")">@(m.Quantity > 0 ? "+" : "")@m.Quantity.ToQty()</td>
+                                <td class="text-end">@m.Balance.ToQty()</td>
+                                @if (cost) { <td class="text-end money small">@m.UnitCost.ToMoney()</td> }
+                                <td class="small text-muted">@m.Note.Truncate(60) @(m.User != null ? "· " + m.User.FullName : "")</td>
+                            </tr>
+                        }
+                        @if (moves.Count == 0) { <tr><td colspan="8" class="text-muted small">Không có biến động trong kỳ.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

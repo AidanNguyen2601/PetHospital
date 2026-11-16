@@ -1,0 +1,127 @@
+@model Invoice
+@{
+    var i = Model;
+    ViewData["Title"] = "Hóa đơn " + i.Code; ViewData["Icon"] = "receipt";
+    var canManage = Me.Has(Perm.InvoiceManage);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var no = 0;
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (i.Status == InvoiceStatus.Draft && canManage)
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@i.Id">@Icon("edit") Sửa hóa đơn</a>
+    }
+    @if (i.Status != InvoiceStatus.Draft)
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Print" asp-route-id="@i.Id" asp-route-auto="1" target="_blank">@Icon("print") In A5</a>
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Print" asp-route-id="@i.Id" asp-route-size="k80" asp-route-auto="1" target="_blank">@Icon("print") In bill 80mm</a>
+    }
+    @if (ViewBag.VisitCode != null) { <a class="btn btn-sm btn-light" asp-controller="Visits" asp-action="Details" asp-route-id="@i.VisitId">Phiếu khám @ViewBag.VisitCode</a> }
+    @if (ViewBag.AdmissionCode != null) { <a class="btn btn-sm btn-light" asp-controller="Admissions" asp-action="Details" asp-route-id="@i.AdmissionId">Phiếu lưu chuồng @ViewBag.AdmissionCode</a> }
+    @if (i.Status == InvoiceStatus.Draft && canManage)
+    {
+        <form asp-action="Delete" asp-route-id="@i.Id" method="post" class="ms-auto" data-confirm="Xóa hóa đơn nháp này?"><button class="btn btn-sm btn-outline-danger">@Icon("trash") Xóa nháp</button></form>
+    }
+</div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between">
+                <span>@i.Code · @i.Date.ToString("dd/MM/yyyy HH:mm")</span>
+                <span class="badge bg-@Badges.For(i.Status)">@i.Status.GetDisplayName()</span>
+            </div>
+            <div class="card-body pb-0">
+                <div class="row small mb-2">
+                    <div class="col-md-6">Khách hàng: @if (i.OwnerId.HasValue) { <a asp-controller="Owners" asp-action="Details" asp-route-id="@i.OwnerId" class="fw-semibold">@i.Owner?.FullName</a> <span>· @i.Owner?.Phone</span> } else { <b>@i.CustomerName</b> }</div>
+                    <div class="col-md-6">Thú cưng: @if (i.PetId.HasValue) { <a asp-controller="Pets" asp-action="Details" asp-route-id="@i.PetId">@i.Pet?.Name</a> }</div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-no-grid>
+                    <thead><tr><th>#</th><th>Nội dung</th><th>ĐVT</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th>@if (Me.CanSeeCost) { <th class="text-end">Giá vốn</th> }<th>Bác sĩ</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in i.Lines.OrderBy(x => x.Id))
+                        {
+                            no++;
+                            <tr>
+                                <td class="text-muted">@no</td>
+                                <td>@l.Description <span class="badge bg-light text-dark border">@l.Kind.GetDisplayName()</span></td>
+                                <td class="small">@l.Unit</td>
+                                <td class="text-end">@l.Quantity.ToQty()</td>
+                                <td class="text-end money">@l.UnitPrice.ToMoney()</td>
+                                <td class="text-end money">@l.Amount.ToMoney()</td>
+                                @if (Me.CanSeeCost) { <td class="text-end money text-muted">@(l.ProductId.HasValue && i.IssuedAt.HasValue ? l.CostAmount.ToMoney() : "")</td> }
+                                <td class="small text-muted">@l.Vet?.FullName</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr><td colspan="5" class="text-end">Tạm tính</td><td class="text-end money">@i.SubTotal.ToMoney()</td><td colspan="2"></td></tr>
+                        @if (i.Discount > 0) { <tr><td colspan="5" class="text-end">Giảm giá</td><td class="text-end money">-@i.Discount.ToMoney()</td><td colspan="2"></td></tr> }
+                        <tr class="fw-bold"><td colspan="5" class="text-end">Tổng cộng</td><td class="text-end money fs-5">@i.Total.ToMoney()</td><td colspan="2"></td></tr>
+                    </tfoot>
+                </table>
+            </div>
+            @if (!string.IsNullOrEmpty(i.Note)) { <div class="card-footer bg-white small text-muted">Ghi chú: @i.Note</div> }
+        </div>
+        <div class="card">
+            <div class="card-header">Phiếu thu</div>
+            <table class="table table-sm mb-0" data-no-grid>
+                <thead><tr><th>Thời gian</th><th>Hình thức</th><th class="text-end">Số tiền</th><th>Ghi chú</th><th>Thu ngân</th></tr></thead>
+                <tbody>
+                    @foreach (var p in i.Payments.OrderBy(x => x.At))
+                    {
+                        <tr class="@(p.Amount < 0 ? "text-danger" : "")"><td class="small">@p.At.ToDateTime()</td><td>@p.Method.GetDisplayName()</td><td class="text-end money">@p.Amount.ToMoney()</td><td class="small">@p.Note</td><td class="small text-muted">@p.User?.FullName</td></tr>
+                    }
+                    @if (i.Payments.Count == 0) { <tr><td colspan="5" class="text-muted small">Chưa thu tiền.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        @if (i.Status == InvoiceStatus.Cancelled) { <div class="alert alert-secondary mt-3 small">Đã hủy lúc @i.CancelledAt.ToDateTime(). Lý do: @i.CancelReason</div> }
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body total-box">
+                <div class="d-flex justify-content-between"><span>Tổng cộng</span><b class="money">@i.Total.ToMoney()</b></div>
+                <div class="d-flex justify-content-between"><span>Đã thu</span><b class="money text-success">@i.Paid.ToMoney()</b></div>
+                <hr />
+                <div class="d-flex justify-content-between align-items-center"><span>Còn phải thu</span><span class="grand">@(i.Status == InvoiceStatus.Cancelled ? "0" : i.Balance.ToMoney())</span></div>
+            </div>
+        </div>
+        @if (canManage && i.Status == InvoiceStatus.Draft)
+        {
+            <form asp-action="Issue" asp-route-id="@i.Id" method="post" class="card mb-3">
+                <div class="card-header">Phát hành &amp; thu tiền</div>
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Phát hành sẽ khóa nội dung hóa đơn và trừ tồn kho thuốc / hàng hóa.</div>
+                    <label class="form-label small">Thu ngay</label>
+                    <input name="payAmount" type="number" step="1000" min="0" value="@i.Total.ToString("0", inv)" class="form-control mb-2" />
+                    <select name="method" class="form-select mb-2" asp-items="@(FormatExtensions.EnumOptions<PaymentMethod>(PaymentMethod.Cash))"></select>
+                    <button class="btn btn-primary w-100">@Icon("check") Phát hành hóa đơn</button>
+                </div>
+            </form>
+        }
+        @if (canManage && i.Status is InvoiceStatus.Unpaid or InvoiceStatus.Partial)
+        {
+            <form asp-action="Pay" asp-route-id="@i.Id" method="post" class="card mb-3">
+                <div class="card-header">Thu tiền</div>
+                <div class="card-body">
+                    <input name="amount" type="number" step="1000" min="1" max="@i.Balance.ToString("0", inv)" value="@i.Balance.ToString("0", inv)" class="form-control mb-2" />
+                    <select name="method" class="form-select mb-2" asp-items="@(FormatExtensions.EnumOptions<PaymentMethod>(PaymentMethod.Cash))"></select>
+                    <input name="note" class="form-control mb-2" placeholder="Ghi chú (mã giao dịch…)" />
+                    <button class="btn btn-success w-100">@Icon("coins") Thu tiền</button>
+                </div>
+            </form>
+        }
+        @if (Me.Has(Perm.InvoiceCancel) && i.Status is InvoiceStatus.Unpaid or InvoiceStatus.Partial or InvoiceStatus.Paid)
+        {
+            <form asp-action="Cancel" asp-route-id="@i.Id" method="post" class="card" data-confirm="Hủy hóa đơn? Thuốc / hàng hóa sẽ được hoàn nhập kho, số đã thu ghi nhận hoàn tiền.">
+                <div class="card-header text-danger">Hủy hóa đơn</div>
+                <div class="card-body">
+                    <input name="reason" class="form-control mb-2" placeholder="Lý do hủy" required />
+                    <button class="btn btn-outline-danger w-100">Hủy hóa đơn</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>

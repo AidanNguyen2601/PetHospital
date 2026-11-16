@@ -1,0 +1,66 @@
+@{
+    ViewData["Title"] = "Dữ liệu mô phỏng"; ViewData["Icon"] = "flow";
+    var counts = ((string Label, string Icon, int Count)[])ViewBag.Counts;
+    DateTime? first = ViewBag.FirstVisit, last = ViewBag.LastVisit;
+}
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">@Icon("flow") Mô phỏng luồng nghiệp vụ</div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    Sinh dữ liệu theo từng ngày, đi đúng luồng của phòng khám: <b>đặt lịch</b> → khách đến / không đến → <b>phiếu khám</b>
+                    (sinh hiệu, chẩn đoán, dịch vụ, đơn thuốc, tiêm phòng) → hẹn <b>tái khám</b> / <b>mũi nhắc lại</b> → <b>nằm viện</b> hoặc <b>lưu chuồng</b>
+                    (theo dõi hằng ngày, xuất chuồng) → <b>hóa đơn</b> phát hành, trừ kho theo lô FEFO → <b>thu tiền</b> ngay, trả sau hoặc còn nợ
+                    → kho tự <b>nhập bổ sung</b> khi xuống dưới tồn tối thiểu.
+                </p>
+                <p class="small text-muted">
+                    Dữ liệu được <b>nạp thêm</b> (không xóa dữ liệu hiện có), dùng danh mục dịch vụ, thuốc, chuồng, bác sĩ đang có.
+                    Nếu chọn gồm hôm nay: có lịch hẹn sắp tới, hàng chờ khám, thú đang nằm viện, hóa đơn nháp chờ thu ngân; kèm lịch hẹn 7 ngày tới.
+                </p>
+                <form asp-action="Generate" method="post" data-confirm="Nạp thêm dữ liệu mô phỏng vào hệ thống? Thao tác này không tự hoàn tác.">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-5">
+                            <label class="form-label">Số ngày mô phỏng (tính lùi từ hôm nay)</label>
+                            <select name="days" class="form-select">
+                                @foreach (var d in PetHospital.Web.Data.FlowSimulator.DayOptions) { <option value="@d" selected="@(d == 30)">@d ngày</option> }
+                            </select>
+                        </div>
+                        <div class="col-sm-7">
+                            <label class="form-label">Lượng khách</label>
+                            <select name="level" class="form-select">
+                                @foreach (var l in PetHospital.Web.Data.FlowSimulator.Levels) { <option value="@l.Code" selected="@(l.Code == 2)">@l.Name</option> }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" name="includeToday" value="true" id="includeToday" checked />
+                        <input type="hidden" name="includeToday" value="false" />
+                        <label class="form-check-label" for="includeToday">Gồm cả hôm nay (hàng chờ, đang khám, hóa đơn nháp)</label>
+                    </div>
+                    <button class="btn btn-primary mt-3">@Icon("plus") Nạp dữ liệu mô phỏng</button>
+                    <div class="form-text">30 ngày ở mức bình thường ≈ 230 lượt khách, 160 phiếu khám, 250 hóa đơn; mất khoảng 20–60 giây.</div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Số bản ghi hiện có</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <tbody>
+                    @foreach (var c in counts)
+                    {
+                        <tr><td>@Icon(c.Icon) @c.Label</td><td class="text-end fw-semibold">@c.Count.ToString("N0")</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            @if (first.HasValue)
+            {
+                <div class="card-footer bg-white small text-muted">Phiếu khám từ @first.Value.ToString("dd/MM/yyyy") đến @last!.Value.ToString("dd/MM/yyyy")</div>
+            }
+        </div>
+    </div>
+</div>

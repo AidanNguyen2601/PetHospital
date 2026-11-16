@@ -1,0 +1,30 @@
+# Phương án B: chỉ chạy web PetHospital, dùng chung SQL Server đang chạy (của sản phẩm khác).
+# PetHospital tạo database riêng PET_DB. Chạy: docker compose -f docker-compose.shared-db.yml up -d --build
+# (hoặc dùng run-pet-B.cmd / deploy-pet-shared-db.ps1 để tự dò SQL Server, tạo login và điền .env)
+name: pethospital
+
+services:
+  pet-web:
+    build: { context: ., dockerfile: Dockerfile }
+    image: pet-web:latest
+    container_name: pet-web
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__PetConnection: "Server=${SHARED_DB_HOST},1433;Database=PET_DB;User Id=${SHARED_DB_USER};Password=${SHARED_DB_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      DataProtection__KeysPath: /app/keys
+      Database__SeedOnStartup: ${PET_SEED_SAMPLE:-true}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${PET_WEB_PORT:-8160}:8080"
+    volumes:
+      - pet-keys:/app/keys
+    networks: [shared-net]
+    restart: unless-stopped
+
+volumes:
+  pet-keys:
+
+networks:
+  shared-net:
+    external: true
+    name: ${SHARED_NETWORK}

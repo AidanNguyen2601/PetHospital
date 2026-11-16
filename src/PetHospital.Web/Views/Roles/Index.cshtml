@@ -1,0 +1,33 @@
+@{
+    ViewData["Title"] = "Vai trò & phân quyền chức năng"; ViewData["Icon"] = "shield";
+    var matrix = (Dictionary<string, HashSet<string>>)ViewBag.Matrix;
+    var counts = (Dictionary<string, int>)ViewBag.UserCounts;
+}
+<div class="alert alert-light border small">Phân quyền theo vai trò và chức năng. Người dùng có thể có nhiều vai trò. Quyền "Xem giá vốn, lãi gộp" điều khiển hiển thị giá vốn trên màn hình kho, hóa đơn và báo cáo.</div>
+<form asp-action="Save" method="post" class="card">
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0 perm-matrix" data-no-grid>
+            <thead>
+                <tr><th>Chức năng</th>@foreach (var r in AppRoles.All) { <th class="text-center small">@r.Name<div class="text-muted fw-normal">@(counts.TryGetValue(r.Code, out var n) ? n : 0) người</div></th> }</tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Perm.All.GroupBy(p => p.Group))
+                {
+                    <tr class="table-light"><td colspan="@(AppRoles.All.Length + 1)" class="fw-semibold small text-uppercase">@g.Key</td></tr>
+                    foreach (var p in g)
+                    {
+                        <tr>
+                            <td>@p.Name <code class="small text-muted">@p.Code</code></td>
+                            @foreach (var r in AppRoles.All)
+                            {
+                                var isAdmin = r.Code == AppRoles.Admin;
+                                <td class="text-center"><input type="checkbox" class="form-check-input" name="perm_@r.Code" value="@p.Code" checked="@(isAdmin || (matrix.TryGetValue(r.Code, out var set) && set.Contains(p.Code)))" disabled="@isAdmin" /></td>
+                            }
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><button class="btn btn-primary">Lưu phân quyền</button> <span class="small text-muted ms-2">Quản trị hệ thống luôn có toàn quyền.</span></div>
+</form>

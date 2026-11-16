@@ -1,0 +1,25 @@
+@model ServiceItem
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm dịch vụ" : "Sửa dịch vụ " + Model.Name; ViewData["Icon"] = "tag";
+}
+<form asp-action="Save" method="post" class="card" style="max-width:820px">
+    <div class="card-body">
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+        <div class="row g-3">
+            <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" /><span asp-validation-for="Code" class="text-danger small"></span></div>
+            <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="Kind" class="form-label"></label><select asp-for="Kind" class="form-select" asp-items="@(FormatExtensions.EnumOptions<ServiceKind>(Model.Kind))"></select></div>
+            <div class="col-md-3"><label asp-for="Unit" class="form-label"></label><input asp-for="Unit" class="form-control" /></div>
+            <div class="col-md-3"><label asp-for="Price" class="form-label"></label><input asp-for="Price" type="number" step="1000" min="0" class="form-control" /><span asp-validation-for="Price" class="text-danger small"></span></div>
+            <div class="col-md-3"><label asp-for="DurationMinutes" class="form-label"></label><input asp-for="DurationMinutes" type="number" min="0" step="5" class="form-control" /></div>
+            <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+            <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+        <button class="btn btn-primary">Lưu</button>
+        <a class="btn btn-light" asp-action="Index">Hủy</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
