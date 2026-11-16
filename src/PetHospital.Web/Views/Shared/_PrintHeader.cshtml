@@ -4,6 +4,8 @@
     <tr>
         <td style="width:60%">
             <div class="fw-bold text-uppercase" style="font-size:1.05rem">@await Model.GetAsync(SettingsService.ClinicName)</div>
+            @{ var br = await Model.BranchAsync(); }
+            @if (br != null) { <div class="fw-semibold">@br.Name</div> }
             <div class="small">@await Model.GetAsync(SettingsService.ClinicAddress)</div>
             <div class="small">ĐT: @await Model.GetAsync(SettingsService.ClinicPhone) · @await Model.GetAsync(SettingsService.ClinicEmail)</div>
             @{ var tax = await Model.GetAsync(SettingsService.ClinicTaxCode); }

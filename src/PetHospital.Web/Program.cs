@@ -2,6 +2,7 @@ using System.Globalization;
 using PetHospital.Web.Data;
 using PetHospital.Web.Infrastructure;
 using PetHospital.Web.Models;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -36,6 +37,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         o.Cookie.Name = "pet.auth";
         o.Cookie.HttpOnly = true;
         o.Cookie.SameSite = SameSiteMode.Lax;
+        // Phiên đăng nhập trước khi có chi nhánh: yêu cầu đăng nhập lại để nhận quyền chi nhánh
+        o.Events.OnValidatePrincipal = async ctx =>
+        {
+            if (ctx.Principal?.FindFirst(BranchScope.AllowedClaim) == null)
+            {
+                ctx.RejectPrincipal();
+                await ctx.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
     });
 
 builder.Services.AddControllersWithViews(o =>
@@ -133,9 +143,15 @@ if (simArg >= 0)
 {
     var simDays = args.Length > simArg + 1 && int.TryParse(args[simArg + 1], out var dd) ? dd : 30;
     var simLevel = args.Length > simArg + 2 && int.TryParse(args[simArg + 2], out var ll) ? ll : 2;
+    // Chi nhánh mô phỏng: --branch <mã chi nhánh> (mặc định chi nhánh đầu tiên)
+    var brArg = Array.IndexOf(args, "--branch");
     using var scope = app.Services.CreateScope();
-    var r = await FlowSimulator.RunAsync(scope.ServiceProvider.GetRequiredService<PetDbContext>(),
-        scope.ServiceProvider.GetRequiredService<StockService>(), simDays, simLevel);
+    var simDb = scope.ServiceProvider.GetRequiredService<PetDbContext>();
+    var branchCode = brArg >= 0 && args.Length > brArg + 1 ? args[brArg + 1] : null;
+    var simBranch = await simDb.Branches.Where(b => branchCode == null || b.Code == branchCode).OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
+        .Select(b => (int?)b.Id).FirstOrDefaultAsync() ?? throw new InvalidOperationException($"Không có chi nhánh {branchCode}");
+    simDb.CurrentBranchId = simBranch;
+    var r = await FlowSimulator.RunAsync(simDb, scope.ServiceProvider.GetRequiredService<StockService>(), simDays, simLevel);
     Console.WriteLine($"[PET] Mô phỏng {r.Days} ngày: {r.NewOwners} KH mới, {r.Appointments} lịch hẹn, {r.Visits} phiếu khám, {r.Vaccinations} mũi tiêm, " +
                       $"{r.Admissions} nội trú, {r.Receipts} phiếu nhập, {r.Invoices} hóa đơn, {r.Payments} lần thu, doanh thu {r.Revenue:N0}");
     return;

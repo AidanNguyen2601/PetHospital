@@ -3,6 +3,8 @@
     ViewData["Title"] = Model.Name + " – hồ sơ bệnh án"; ViewData["Icon"] = "paw";
     var visits = (List<Visit>)ViewBag.Visits; var vaccines = (List<Vaccination>)ViewBag.Vaccinations;
     var admissions = (List<Admission>)ViewBag.Admissions; var appts = (List<Appointment>)ViewBag.Appointments;
+    var branchNames = (Dictionary<int, string>)ViewBag.BranchNames; var curBranch = Me.BranchId;
+    string BranchTag(int id) => id == curBranch ? "" : branchNames.GetValueOrDefault(id) ?? "";
     var weights = visits.Where(v => v.WeightKg.HasValue).OrderBy(v => v.VisitAt).TakeLast(12).Select(v => (v.VisitAt.ToString("dd/MM/yy"), v.WeightKg!.Value)).ToList();
 }
 <div class="d-flex flex-wrap gap-2 mb-3">
@@ -69,7 +71,7 @@
                         {
                             <tr>
                                 <td class="text-nowrap">@v.Date.ToDate()</td>
-                                <td>@v.VaccineName @if (v.VisitId == null) { <span class="badge bg-light text-dark border">ngoài</span> }</td>
+                                <td>@v.VaccineName @if (v.VisitId == null) { <span class="badge bg-light text-dark border">ngoài</span> } @if (BranchTag(v.BranchId) is { Length: > 0 } bt) { <span class="badge bg-info-subtle text-info-emphasis branch-tag">@bt</span> }</td>
                                 <td>@v.DoseNumber</td>
                                 <td class="small">@v.LotNo</td>
                                 <td class="small">@v.Vet?.DisplayName</td>
@@ -102,7 +104,7 @@
                             <a asp-controller="Visits" asp-action="Details" asp-route-id="@v.Id" class="fw-semibold">@v.VisitAt.ToDateTime() · @v.Code</a>
                             <span class="badge bg-@Badges.For(v.Status)">@v.Status.GetDisplayName()</span>
                         </div>
-                        <div class="meta">@v.Vet?.DisplayName @(v.WeightKg.HasValue ? " · " + v.WeightKg.Value.ToQty() + " kg" : "") @(v.Temperature.HasValue ? " · " + v.Temperature.Value.ToQty() + " °C" : "")</div>
+                        <div class="meta">@if (BranchTag(v.BranchId) is { Length: > 0 } vb) { <span class="badge bg-info-subtle text-info-emphasis branch-tag">@vb</span> } @v.Vet?.DisplayName @(v.WeightKg.HasValue ? " · " + v.WeightKg.Value.ToQty() + " kg" : "") @(v.Temperature.HasValue ? " · " + v.Temperature.Value.ToQty() + " °C" : "")</div>
                         @if (!string.IsNullOrEmpty(v.Reason)) { <div class="small"><b>Lý do:</b> @v.Reason</div> }
                         @if (!string.IsNullOrEmpty(v.Diagnosis)) { <div class="small"><b>Chẩn đoán:</b> @v.Diagnosis</div> }
                         @if (!string.IsNullOrEmpty(v.Treatment)) { <div class="small"><b>Điều trị:</b> @v.Treatment</div> }
@@ -128,7 +130,7 @@
                         @foreach (var a in admissions)
                         {
                             <tr>
-                                <td><a asp-controller="Admissions" asp-action="Details" asp-route-id="@a.Id">@a.Code</a></td>
+                                <td>@if (a.BranchId == curBranch) { <a asp-controller="Admissions" asp-action="Details" asp-route-id="@a.Id">@a.Code</a> } else { @a.Code <span class="badge bg-info-subtle text-info-emphasis branch-tag">@BranchTag(a.BranchId)</span> }</td>
                                 <td class="small">@a.Kind.GetDisplayName()</td>
                                 <td>@a.Cage?.Code</td>
                                 <td class="small text-nowrap">@a.AdmitAt.ToDateTime()</td>

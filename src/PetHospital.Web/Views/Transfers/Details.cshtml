@@ -1,0 +1,42 @@
+@model StockTransfer
+@{
+    var t = Model;
+    ViewData["Title"] = "Phiếu chuyển kho " + t.Code; ViewData["Icon"] = "transfer";
+    var cost = Me.CanSeeCost; var no = 0;
+    var mine = t.BranchId == Me.BranchId;
+}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @if (t.State == DocState.Draft && mine && Me.Has(Perm.StockManage))
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@t.Id">@Icon("edit") Sửa</a>
+        <form asp-action="Post" asp-route-id="@t.Id" method="post" data-confirm="Ghi sổ phiếu chuyển kho này?"><button class="btn btn-sm btn-primary">@Icon("check") Ghi sổ (chuyển hàng)</button></form>
+        <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="ms-auto" data-confirm="Xóa phiếu nháp?"><button class="btn btn-sm btn-outline-danger">@Icon("trash") Xóa</button></form>
+    }
+    <a class="btn btn-sm btn-light" asp-action="Index">Danh sách phiếu</a>
+</div>
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="info row mb-0">
+            <dt class="col-sm-2">Số phiếu</dt><dd class="col-sm-4">@t.Code <span class="badge bg-@Badges.For(t.State)">@t.State.GetDisplayName()</span></dd>
+            <dt class="col-sm-2">Ngày chuyển</dt><dd class="col-sm-4">@t.Date.ToDate()</dd>
+            <dt class="col-sm-2">Chi nhánh xuất</dt><dd class="col-sm-4">@t.Branch?.Code – @t.Branch?.Name</dd>
+            <dt class="col-sm-2">Chi nhánh nhận</dt><dd class="col-sm-4">@t.ToBranch?.Code – @t.ToBranch?.Name</dd>
+            <dt class="col-sm-2">Người lập</dt><dd class="col-sm-4">@t.CreatedBy?.FullName</dd>
+            <dt class="col-sm-2">Ghi sổ lúc</dt><dd class="col-sm-4">@t.PostedAt.ToDateTime()</dd>
+            <dt class="col-sm-2">Ghi chú</dt><dd class="col-sm-10">@t.Note</dd>
+        </dl>
+    </div>
+</div>
+<div class="card">
+    <table class="table table-sm mb-0" data-no-grid>
+        <thead><tr><th>#</th><th>Mặt hàng</th><th class="text-end">Số lượng</th>@if (cost) { <th class="text-end">Giá vốn</th> }</tr></thead>
+        <tbody>
+            @foreach (var l in t.Lines.OrderBy(x => x.Id))
+            {
+                no++;
+                <tr><td>@no</td><td><a asp-controller="Products" asp-action="Details" asp-route-id="@l.ProductId">@l.Product?.Code – @l.Product?.Name</a></td><td class="text-end">@l.Quantity.ToQty() @l.Product?.Unit</td>@if (cost) { <td class="text-end money">@(t.State == DocState.Posted ? l.CostAmount.ToMoney() : "")</td> }</tr>
+            }
+        </tbody>
+        @if (cost && t.State == DocState.Posted) { <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Tổng giá vốn</td><td class="text-end money">@t.Total.ToMoney()</td></tr></tfoot> }
+    </table>
+</div>

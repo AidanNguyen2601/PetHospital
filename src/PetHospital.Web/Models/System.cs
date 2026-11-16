@@ -37,10 +37,26 @@ public class AppUser
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? LastLoginAt { get; set; }
 
+    /// <summary>Làm việc ở mọi chi nhánh (quản lý chuỗi). Quản trị hệ thống luôn được xem mọi chi nhánh.</summary>
+    public bool AllBranches { get; set; }
+
+    /// <summary>Các chi nhánh được làm việc (khi không phải toàn chuỗi)</summary>
+    public List<UserBranch> Branches { get; set; } = new();
+
     public IEnumerable<string> RoleList() =>
         Roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     public string DisplayName => string.IsNullOrWhiteSpace(Title) ? FullName : $"{Title} {FullName}";
+}
+
+/// <summary>Người dùng – chi nhánh được làm việc</summary>
+public class UserBranch
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public AppUser? User { get; set; }
+    public int BranchId { get; set; }
+    public Branch? Branch { get; set; }
 }
 
 /// <summary>Quyền chức năng gắn với vai trò (ma trận phân quyền cấu hình được)</summary>

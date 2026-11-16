@@ -15,14 +15,17 @@ public static class DbSeeder
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
 
         await db.Database.EnsureCreatedAsync();
+        var log = scope.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger("PetHospital.SchemaUpgrade");
+        db.DefaultBranchId = await SchemaUpgrade.RunAsync(db, log);
         await EnsureBaseDataAsync(db);
+        ChainSettings.ShareCustomers = (await db.SystemSettings.Where(s => s.Key == SettingsService.ShareCustomers).Select(s => s.Value).FirstOrDefaultAsync() ?? "1") != "0";
 
         if (!await db.Users.AnyAsync())
         {
             if (seedSampleData) await SampleData.SeedAsync(db, scope.ServiceProvider.GetRequiredService<StockService>(), hasher);
             else
             {
-                var admin = new AppUser { Username = "admin", FullName = "Quản trị hệ thống", Roles = AppRoles.Admin };
+                var admin = new AppUser { Username = "admin", FullName = "Quản trị hệ thống", Roles = AppRoles.Admin, AllBranches = true };
                 admin.PasswordHash = hasher.HashPassword(admin, "Admin@123");
                 db.Users.Add(admin);
                 await db.SaveChangesAsync();

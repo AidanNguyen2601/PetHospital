@@ -95,7 +95,7 @@ public static class Badges
 
     public static string For(StockMoveType t) => t switch
     {
-        StockMoveType.Receipt or StockMoveType.AdjustIn or StockMoveType.Return => "success",
+        StockMoveType.Receipt or StockMoveType.AdjustIn or StockMoveType.Return or StockMoveType.TransferIn => "success",
         _ => "danger"
     };
 }

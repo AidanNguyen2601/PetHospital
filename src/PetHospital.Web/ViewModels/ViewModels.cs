@@ -59,7 +59,39 @@ public class UserEditViewModel
 
     [StringLength(100, MinimumLength = 6, ErrorMessage = "Mật khẩu tối thiểu 6 ký tự"), DataType(DataType.Password), Display(Name = "Mật khẩu")]
     public string? Password { get; set; }
+
+    [Display(Name = "Làm việc ở mọi chi nhánh (quản lý chuỗi)")]
+    public bool AllBranches { get; set; }
+
+    [Display(Name = "Chi nhánh làm việc")]
+    public List<int> BranchIds { get; set; } = new();
 }
+
+/// <summary>Phiếu chuyển kho giữa chi nhánh</summary>
+public class TransferFormModel
+{
+    public int Id { get; set; }
+
+    [DataType(DataType.Date), Display(Name = "Ngày chuyển")]
+    public DateTime Date { get; set; } = DateTime.Today;
+
+    [Display(Name = "Chuyển đến chi nhánh")]
+    public int ToBranchId { get; set; }
+
+    [StringLength(1000), Display(Name = "Ghi chú")]
+    public string? Note { get; set; }
+
+    public List<TransferLineInput> Lines { get; set; } = new();
+}
+
+public class TransferLineInput
+{
+    public int? ProductId { get; set; }
+    public decimal Quantity { get; set; } = 1;
+}
+
+/// <summary>Tồn kho một mặt hàng tại chi nhánh khác</summary>
+public record BranchStockRow(string Branch, decimal Quantity);
 
 public class DashboardViewModel
 {

@@ -47,7 +47,8 @@ public class OwnersController : AppController
         var o = await Db.Owners.AsNoTracking().Include(x => x.Pets).ThenInclude(p => p.Species)
             .Include(x => x.Pets).ThenInclude(p => p.Breed).FirstOrDefaultAsync(x => x.Id == id);
         if (o == null) return NotFound();
-        ViewBag.Visits = await Db.Visits.AsNoTracking().Include(v => v.Pet).Include(v => v.Vet).Where(v => v.OwnerId == id)
+        // Lịch sử khám ở mọi chi nhánh; hóa đơn, công nợ, lịch hẹn theo chi nhánh đang làm việc
+        ViewBag.Visits = await Db.Visits.IgnoreQueryFilters().AsNoTracking().Include(v => v.Pet).Include(v => v.Vet).Where(v => v.OwnerId == id)
             .OrderByDescending(v => v.VisitAt).Take(30).ToListAsync();
         ViewBag.Invoices = Me.HasAny(Perm.InvoiceView, Perm.InvoiceManage)
             ? await Db.Invoices.AsNoTracking().Include(i => i.Pet).Where(i => i.OwnerId == id).OrderByDescending(i => i.Date).Take(30).ToListAsync()
@@ -101,7 +102,8 @@ public class OwnersController : AppController
     {
         var o = await Db.Owners.FindAsync(id);
         if (o == null) return NotFound();
-        var used = await Db.Pets.AnyAsync(p => p.OwnerId == id) || await Db.Invoices.AnyAsync(i => i.OwnerId == id) || await Db.Appointments.AnyAsync(a => a.OwnerId == id);
+        var used = await Db.Pets.IgnoreQueryFilters().AnyAsync(p => p.OwnerId == id) || await Db.Invoices.IgnoreQueryFilters().AnyAsync(i => i.OwnerId == id)
+            || await Db.Appointments.IgnoreQueryFilters().AnyAsync(a => a.OwnerId == id) || await Db.Visits.IgnoreQueryFilters().AnyAsync(v => v.OwnerId == id);
         if (used)
         {
             o.IsActive = false;

@@ -10,6 +10,8 @@
     <style>@@page { size: 80mm auto; margin: 2mm; } .paper { width: auto !important; padding: 0 !important; box-shadow: none !important; }</style>
     <div class="receipt-k80">
         <div class="text-center fw-bold text-uppercase">@await s.GetAsync(SettingsService.ClinicName)</div>
+        @{ var br = await s.BranchAsync(); }
+        @if (br != null) { <div class="text-center fw-semibold">@br.Name</div> }
         <div class="text-center">@await s.GetAsync(SettingsService.ClinicAddress)</div>
         <div class="text-center">ĐT: @await s.GetAsync(SettingsService.ClinicPhone)</div>
         <hr class="my-1" />

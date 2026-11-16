@@ -1,0 +1,39 @@
+@model PagedList<StockTransfer>
+@{
+    ViewData["Title"] = "Chuyển kho giữa chi nhánh"; ViewData["Icon"] = "transfer";
+    var f = (ListFilter)ViewBag.Filter; string? dir = ViewBag.Dir; var cur = Me.BranchId;
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(dir == null ? "active" : "")" asp-route-dir="">Tất cả</a></li>
+    <li class="nav-item"><a class="nav-link @(dir == "out" ? "active" : "")" asp-route-dir="out">Chuyển đi</a></li>
+    <li class="nav-item"><a class="nav-link @(dir == "in" ? "active" : "")" asp-route-dir="in">Nhận về</a></li>
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="dir" value="@dir" />
+    <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:280px" placeholder="Số phiếu, ghi chú…" />
+    <button class="btn btn-sm btn-outline-secondary">Tìm</button>
+    @if (Me.Has(Perm.StockManage)) { <a class="btn btn-sm btn-primary ms-auto" asp-action="Create">@Icon("plus") Lập phiếu chuyển kho</a> }
+</form>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Số phiếu</th><th>Ngày</th><th>Chi nhánh xuất</th><th>Chi nhánh nhận</th>@if (Me.CanSeeCost) { <th class="text-end">Giá vốn</th> }<th>Trạng thái</th><th>Người lập</th></tr></thead>
+            <tbody>
+                @foreach (var t in Model.Items)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@t.Id" class="fw-semibold">@t.Code</a></td>
+                        <td>@t.Date.ToDate()</td>
+                        <td class="@(t.BranchId == cur ? "fw-semibold" : "")">@t.Branch?.Name</td>
+                        <td class="@(t.ToBranchId == cur ? "fw-semibold" : "")">@t.ToBranch?.Name</td>
+                        @if (Me.CanSeeCost) { <td class="text-end money">@t.Total.ToMoney()</td> }
+                        <td><span class="badge bg-@Badges.For(t.State)">@t.State.GetDisplayName()</span></td>
+                        <td class="small text-muted">@t.CreatedBy?.FullName</td>
+                    </tr>
+                }
+                @if (Model.Items.Count == 0) { <tr><td colspan="7" class="text-muted p-3">Chưa có phiếu chuyển kho.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white"><partial name="_Pager" model="Model" /></div>
+</div>

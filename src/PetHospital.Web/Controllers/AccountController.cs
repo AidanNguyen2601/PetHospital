@@ -35,14 +35,22 @@ public class AccountController : AppController
             ModelState.AddModelError(string.Empty, "Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.");
             return View(vm);
         }
-        await SignInAsync(user, vm.RememberMe);
+        var branchClaims = await BranchScope.ClaimsForAsync(Db, user);
+        if (branchClaims == null)
+        {
+            ModelState.AddModelError(string.Empty, "Tài khoản chưa được gán chi nhánh đang hoạt động. Liên hệ quản trị hệ thống.");
+            return View(vm);
+        }
+        await SignInAsync(user, vm.RememberMe, branchClaims);
+        // Bắt đầu phiên ở chi nhánh mặc định
+        Response.Cookies.Delete(BranchScope.Cookie);
         user.LastLoginAt = DateTime.Now;
         await Db.SaveChangesAsync();
         if (!string.IsNullOrEmpty(vm.ReturnUrl) && Url.IsLocalUrl(vm.ReturnUrl)) return Redirect(vm.ReturnUrl);
         return RedirectToAction("Index", "Home");
     }
 
-    private async Task SignInAsync(AppUser user, bool persistent)
+    private async Task SignInAsync(AppUser user, bool persistent, List<Claim> branchClaims)
     {
         var claims = new List<Claim>
         {
@@ -51,6 +59,7 @@ public class AccountController : AppController
             new(ClaimsExtensions.FullNameClaim, user.DisplayName),
             new(ClaimsExtensions.VetClaim, user.IsVet ? "1" : "0")
         };
+        claims.AddRange(branchClaims);
         foreach (var r in user.RoleList()) claims.Add(new Claim(ClaimTypes.Role, r));
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,

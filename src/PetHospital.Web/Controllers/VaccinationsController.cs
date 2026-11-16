@@ -78,7 +78,7 @@ public class VaccinationsController : AppController
             ViewBag.Vets = await Svc<Lookups>().VetsAsync(m.VetId, "-- Không ghi / tiêm nơi khác --");
             return View(m);
         }
-        foreach (var old in await Db.Vaccinations.Where(x => x.PetId == m.PetId && !x.ReminderDone && x.VaccineName == m.VaccineName).ToListAsync())
+        foreach (var old in await Db.Vaccinations.IgnoreQueryFilters().Where(x => x.PetId == m.PetId && !x.ReminderDone && x.VaccineName == m.VaccineName).ToListAsync())
             old.ReminderDone = true;
         Db.Vaccinations.Add(new Vaccination
         {

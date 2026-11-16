@@ -166,7 +166,8 @@ public static class FlowSimulator
         // ---------------------------------------------------------------------------------------------
         private async Task LoadAsync()
         {
-            var users = await _db.Users.AsNoTracking().Where(u => u.IsActive).ToListAsync();
+            var simBranch = _db.WriteBranchId;
+            var users = await _db.Users.AsNoTracking().Where(u => u.IsActive && (u.AllBranches || u.Branches.Any(b => b.BranchId == simBranch))).ToListAsync();
             _vets = users.Where(u => u.IsVet).Select(u => u.Id).ToList();
             if (_vets.Count == 0) throw new InvalidOperationException("Chưa có bác sĩ thú y (người dùng có cờ bác sĩ). Hãy tạo ít nhất một bác sĩ trước khi mô phỏng.");
             int Pick(string role) => users.FirstOrDefault(u => u.RoleList().Contains(role))?.Id ?? users.FirstOrDefault(u => u.RoleList().Contains(AppRoles.Admin))?.Id ?? users[0].Id;
@@ -186,7 +187,7 @@ public static class FlowSimulator
             var products = await _db.Products.AsNoTracking().Where(p => p.IsActive).ToListAsync();
             _prd = products.GroupBy(p => p.Code).ToDictionary(g => g.Key, g => { var p = g.First(); return (p.Id, p.Name, p.Unit, p.SalePrice, p.Kind, p.BoosterDays, p.TrackExpiry, p.MinStock); });
             _codeById = _prd.ToDictionary(x => x.Value.Id, x => x.Key);
-            _phones = new HashSet<string>(await _db.Owners.Select(o => o.Phone).ToListAsync());
+            _phones = new HashSet<string>(await _db.Owners.IgnoreQueryFilters().Select(o => o.Phone).ToListAsync());
             var vaccines = products.Where(p => p.Kind == ProductKind.Vaccine).ToList();
             (int, string)? V(string code, string contains) =>
                 (vaccines.FirstOrDefault(p => p.Code == code) ?? vaccines.FirstOrDefault(p => p.Name.Contains(contains, StringComparison.OrdinalIgnoreCase))) is { } p ? (p.Id, p.Code) : null;
@@ -210,8 +211,8 @@ public static class FlowSimulator
                     Weight = p.WeightKg ?? (p.SpeciesId == _catSpecies ? 4 : 8), BirthDate = p.BirthDate
                 }).ToList();
 
-            _ownerSeq = MaxNumber(await _db.Owners.Select(o => o.Code).ToListAsync(), "KH");
-            _petSeq = MaxNumber(await _db.Pets.Select(o => o.Code).ToListAsync(), "TC");
+            _ownerSeq = MaxNumber(await _db.Owners.IgnoreQueryFilters().Select(o => o.Code).ToListAsync(), "KH");
+            _petSeq = MaxNumber(await _db.Pets.IgnoreQueryFilters().Select(o => o.Code).ToListAsync(), "TC");
 
             foreach (var g in await _db.Vaccinations.AsNoTracking().Where(v => v.ProductId != null)
                          .GroupBy(v => new { v.PetId, v.ProductId }).Select(g => new { g.Key.PetId, g.Key.ProductId, Max = g.Max(x => x.DoseNumber) }).ToListAsync())
@@ -224,7 +225,7 @@ public static class FlowSimulator
         /// <summary>Số chứng từ: TIỀN TỐ + yyMM + "-" + STT, nối tiếp số lớn nhất đang có trong tháng</summary>
         private async Task<string> CodeAsync(string prefix, DateTime at)
         {
-            var head = $"{prefix}{at:yyMM}-";
+            var head = await Codes.HeadAsync(_db, prefix, at);
             if (!_seq.TryGetValue(head, out var n))
             {
                 IQueryable<string> q = prefix switch
@@ -232,7 +233,7 @@ public static class FlowSimulator
                     "PK" => _db.Visits.Select(x => x.Code), "HD" => _db.Invoices.Select(x => x.Code), "LH" => _db.Appointments.Select(x => x.Code),
                     "NT" => _db.Admissions.Select(x => x.Code), _ => _db.StockReceipts.Select(x => x.Code)
                 };
-                var last = await q.Where(c => c.StartsWith(head)).OrderByDescending(c => c).FirstOrDefaultAsync();
+                var last = await q.IgnoreQueryFilters().Where(c => c.StartsWith(head)).OrderByDescending(c => c).FirstOrDefaultAsync();
                 n = last != null && int.TryParse(last[head.Length..], out var v) ? v : 0;
             }
             _seq[head] = ++n;
@@ -278,7 +279,7 @@ public static class FlowSimulator
         private async Task RestockAsync(DateTime d, bool scheduled)
         {
             if (!scheduled) return;
-            var low = await _db.Products.Where(p => p.IsActive && p.Stock < p.MinStock * 2 && p.MinStock > 0).ToListAsync();
+            var low = await _db.Products.Include(p => p.Stocks).Where(p => p.IsActive && p.MinStock > 0 && p.Stocks.Sum(s => s.Quantity) < p.MinStock * 2).ToListAsync();
             if (low.Count == 0) return;
             var lines = low.Select(p => (p, Math.Max(p.MinStock * 5 - p.Stock, p.MinStock))).ToList();
             await ReceiveAsync(d.AddHours(7.5), "Công ty TNHH Dược Thú y Sài Gòn", "Nhập bổ sung định kỳ", lines);
@@ -290,7 +291,7 @@ public static class FlowSimulator
             var need = lines.Where(l => l.ProductId.HasValue).GroupBy(l => l.ProductId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
             if (need.Count == 0) return;
             var ids = need.Keys.ToList();
-            var short_ = (await _db.Products.Where(p => ids.Contains(p.Id)).ToListAsync()).Where(p => p.Stock < need[p.Id]).ToList();
+            var short_ = (await _db.Products.Include(p => p.Stocks).Where(p => ids.Contains(p.Id)).ToListAsync()).Where(p => p.Stock < need[p.Id]).ToList();
             if (short_.Count == 0) return;
             await ReceiveAsync(at.AddMinutes(-30), "Nhà thuốc thú y Phương Nam", "Nhập gấp do thiếu hàng",
                 short_.Select(p => (p, need[p.Id] - p.Stock + Math.Max(p.MinStock * 3, 5))).ToList());

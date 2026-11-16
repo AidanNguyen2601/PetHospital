@@ -77,7 +77,7 @@ public class VisitsController : AppController
         }
         var v = new Visit
         {
-            Code = await Codes.NextAsync(Db.Visits.Select(x => x.Code), "PK"), PetId = pet.Id, OwnerId = pet.OwnerId, VetId = m.VetId, VisitAt = DateTime.Now,
+            Code = await Codes.NextAsync(Db, Db.Visits.Select(x => x.Code), "PK"), PetId = pet.Id, OwnerId = pet.OwnerId, VetId = m.VetId, VisitAt = DateTime.Now,
             Status = VisitStatus.Waiting, Reason = m.Reason, WeightKg = m.WeightKg ?? pet.WeightKg, CreatedById = CurrentUserId
         };
         if (serviceItemId.HasValue)
@@ -122,11 +122,26 @@ public class VisitsController : AppController
         return View(vm);
     }
 
-    private async Task<Visit?> LoadAsync(int id) =>
-        await Db.Visits.Include(v => v.Pet).ThenInclude(p => p!.Species).Include(v => v.Pet).ThenInclude(p => p!.Breed)
+    /// <summary>Phiếu khám của chi nhánh đang làm việc; anyBranch: đọc phiếu của chi nhánh khác (khi dùng chung hồ sơ khách hàng, chỉ xem)</summary>
+    private async Task<Visit?> LoadAsync(int id, bool anyBranch = false)
+    {
+        var q = Db.Visits.AsQueryable();
+        if (anyBranch) q = q.IgnoreQueryFilters().AsNoTracking();
+        return await q.Include(v => v.Pet).ThenInclude(p => p!.Species).Include(v => v.Pet).ThenInclude(p => p!.Breed)
             .Include(v => v.Owner).Include(v => v.Vet)
             .Include(v => v.Services).ThenInclude(s => s.ServiceItem).Include(v => v.Medicines).ThenInclude(m => m.Product)
             .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == id);
+    }
+
+    /// <summary>Phiếu khám chi nhánh khác: chỉ xem (hồ sơ bệnh án dùng chung)</summary>
+    private async Task<Visit?> LoadForViewAsync(int id)
+    {
+        var v = await LoadAsync(id);
+        if (v != null || !ChainSettings.ShareCustomers) return v;
+        v = await LoadAsync(id, anyBranch: true);
+        if (v != null) ViewBag.OtherBranch = (await Svc<Lookups>().BranchNamesAsync()).GetValueOrDefault(v.BranchId);
+        return v;
+    }
 
     private async Task ExamData(Visit v)
     {
@@ -136,9 +151,10 @@ public class VisitsController : AppController
         ViewBag.ProductList = (await l.ProductsAsync()).Where(p => p.Kind != ProductKind.Vaccine).ToList();
         ViewBag.VaccineList = await l.ProductsAsync(ProductKind.Vaccine);
         ViewBag.Vaccinations = await Db.Vaccinations.AsNoTracking().Include(x => x.Product).Where(x => x.VisitId == v.Id).ToListAsync();
-        ViewBag.History = await Db.Visits.AsNoTracking().Include(x => x.Vet)
+        // Tiền sử của thú cưng ở mọi chi nhánh
+        ViewBag.History = await Db.Visits.IgnoreQueryFilters().AsNoTracking().Include(x => x.Vet)
             .Where(x => x.PetId == v.PetId && x.Id != v.Id && x.Status == VisitStatus.Completed).OrderByDescending(x => x.VisitAt).Take(8).ToListAsync();
-        ViewBag.PetVaccines = await Db.Vaccinations.AsNoTracking().Where(x => x.PetId == v.PetId && x.VisitId != v.Id).OrderByDescending(x => x.Date).Take(8).ToListAsync();
+        ViewBag.PetVaccines = await Db.Vaccinations.IgnoreQueryFilters().AsNoTracking().Where(x => x.PetId == v.PetId && x.VisitId != v.Id).OrderByDescending(x => x.Date).Take(8).ToListAsync();
     }
 
     [HttpPost, ValidateAntiForgeryToken, RequirePerm(Perm.VisitExam)]
@@ -160,7 +176,7 @@ public class VisitsController : AppController
         var serviceIds = vm.Services.Where(s => s.ItemId > 0).Select(s => s.ItemId!.Value).Distinct().ToList();
         var services = await Db.ServiceItems.Where(s => serviceIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
         var productIds = vm.Medicines.Where(s => s.ItemId > 0).Select(s => s.ItemId!.Value).Distinct().ToList();
-        var products = await Db.Products.Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        var products = await Db.Products.Include(p => p.Stocks).Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
         foreach (var line in vm.Medicines.Where(x => x.ItemId > 0))
         {
             if (line.Quantity <= 0) ModelState.AddModelError("", "Số lượng thuốc phải lớn hơn 0.");
@@ -202,7 +218,7 @@ public class VisitsController : AppController
                 var at = v.FollowUpDate.Value.Date.AddHours(9);
                 Db.Appointments.Add(new Appointment
                 {
-                    Code = await Codes.NextAsync(Db.Appointments.Select(x => x.Code), "LH", at), OwnerId = v.OwnerId, PetId = v.PetId, VetId = v.VetId,
+                    Code = await Codes.NextAsync(Db, Db.Appointments.Select(x => x.Code), "LH", at), OwnerId = v.OwnerId, PetId = v.PetId, VetId = v.VetId,
                     StartAt = at, DurationMinutes = 15, Reason = $"Tái khám ({v.Diagnosis})".Truncate(500), Status = AppointmentStatus.Booked,
                     ServiceItemId = await Db.ServiceItems.Where(s => s.Code == "KB02").Select(s => (int?)s.Id).FirstOrDefaultAsync(), CreatedById = CurrentUserId
                 });
@@ -236,13 +252,13 @@ public class VisitsController : AppController
         var v = await Db.Visits.FindAsync(id);
         if (v == null) return NotFound();
         if (v.Status is VisitStatus.Completed or VisitStatus.Cancelled) return BackWithError("Phiếu khám đã đóng.", nameof(Details), new { id });
-        Product? p = productId.HasValue ? await Db.Products.FindAsync(productId.Value) : null;
+        Product? p = productId.HasValue ? await Db.Products.Include(x => x.Stocks).FirstOrDefaultAsync(x => x.Id == productId.Value) : null;
         var name = p?.Name ?? vaccineName?.Trim();
         if (string.IsNullOrEmpty(name)) return BackWithError("Chọn vắc-xin hoặc nhập tên vắc-xin.", nameof(Exam), new { id });
         if (p != null && p.Stock < 1) return BackWithError($"{p.Name} đã hết hàng trong kho.", nameof(Exam), new { id });
         var next = nextDueDate ?? (p?.BoosterDays is > 0 ? DateTime.Today.AddDays(p.BoosterDays.Value) : null);
         // Mũi trước của cùng loại vắc-xin coi như đã nhắc
-        foreach (var old in await Db.Vaccinations.Where(x => x.PetId == v.PetId && !x.ReminderDone && (x.ProductId == productId && productId != null || x.VaccineName == name)).ToListAsync())
+        foreach (var old in await Db.Vaccinations.IgnoreQueryFilters().Where(x => x.PetId == v.PetId && !x.ReminderDone && (x.ProductId == productId && productId != null || x.VaccineName == name)).ToListAsync())
             old.ReminderDone = true;
         Db.Vaccinations.Add(new Vaccination
         {
@@ -267,9 +283,9 @@ public class VisitsController : AppController
 
     public async Task<IActionResult> Details(int id)
     {
-        var v = await LoadAsync(id);
+        var v = await LoadForViewAsync(id);
         if (v == null) return NotFound();
-        ViewBag.Vaccinations = await Db.Vaccinations.AsNoTracking().Include(x => x.Product).Where(x => x.VisitId == id).ToListAsync();
+        ViewBag.Vaccinations = await Db.Vaccinations.IgnoreQueryFilters().AsNoTracking().Include(x => x.Product).Where(x => x.VisitId == id).ToListAsync();
         ViewBag.Invoice = v.InvoiceId.HasValue ? await Db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == v.InvoiceId) : null;
         ViewBag.Admission = await Db.Admissions.AsNoTracking().Include(a => a.Cage).FirstOrDefaultAsync(a => a.VisitId == id);
         return View(v);
@@ -278,9 +294,9 @@ public class VisitsController : AppController
     /// <summary>In đơn thuốc / phiếu khám</summary>
     public async Task<IActionResult> Print(int id)
     {
-        var v = await LoadAsync(id);
+        var v = await LoadForViewAsync(id);
         if (v == null) return NotFound();
-        ViewBag.Vaccinations = await Db.Vaccinations.AsNoTracking().Where(x => x.VisitId == id).ToListAsync();
+        ViewBag.Vaccinations = await Db.Vaccinations.IgnoreQueryFilters().AsNoTracking().Where(x => x.VisitId == id).ToListAsync();
         ViewBag.Settings = Svc<SettingsService>();
         ViewData["Layout"] = "_PrintLayout";
         return View(v);

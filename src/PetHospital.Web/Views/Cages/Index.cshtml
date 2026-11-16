@@ -1,10 +1,11 @@
 @model List<Cage>
 @{
     ViewData["Title"] = "Chuồng lưu trú"; ViewData["Icon"] = "home-heart";
-    var busy = (List<int>)ViewBag.Busy; var canEdit = Me.Has(Perm.Catalog);
+    var busy = (List<int>)ViewBag.Busy; var canEdit = Me.HasAny(Perm.Catalog, Perm.Admission); string? branchName = ViewBag.BranchName;
 }
 <div class="toolbar">
     <a class="btn btn-sm btn-outline-secondary" asp-controller="Admissions" asp-action="Index">@Icon("bed") Sơ đồ chuồng</a>
+    <span class="small text-muted">Chuồng của chi nhánh <b>@branchName</b> · @Model.Count(c => c.IsActive) chuồng đang sử dụng</span>
     @if (canEdit) { <a class="btn btn-sm btn-primary ms-auto" asp-action="Create">@Icon("plus") Thêm chuồng</a> }
 </div>
 <div class="card">

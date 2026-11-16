@@ -56,7 +56,9 @@ public enum StockMoveType
     [Display(Name = "Xuất bán / kê đơn")] Sale = 1,
     [Display(Name = "Hoàn nhập (hủy hóa đơn)")] Return = 2,
     [Display(Name = "Điều chỉnh tăng")] AdjustIn = 3,
-    [Display(Name = "Điều chỉnh giảm / hủy hàng")] AdjustOut = 4
+    [Display(Name = "Điều chỉnh giảm / hủy hàng")] AdjustOut = 4,
+    [Display(Name = "Chuyển kho đi")] TransferOut = 5,
+    [Display(Name = "Nhận chuyển kho")] TransferIn = 6
 }
 
 public enum DocState

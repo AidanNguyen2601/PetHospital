@@ -51,8 +51,8 @@ public class ServicesController : AppController
     {
         var s = await Db.ServiceItems.FindAsync(id);
         if (s == null) return NotFound();
-        var used = await Db.VisitServices.AnyAsync(x => x.ServiceItemId == id) || await Db.InvoiceLines.AnyAsync(x => x.ServiceItemId == id)
-            || await Db.Appointments.AnyAsync(x => x.ServiceItemId == id);
+        var used = await Db.VisitServices.IgnoreQueryFilters().AnyAsync(x => x.ServiceItemId == id) || await Db.InvoiceLines.IgnoreQueryFilters().AnyAsync(x => x.ServiceItemId == id)
+            || await Db.Appointments.IgnoreQueryFilters().AnyAsync(x => x.ServiceItemId == id);
         if (used) { s.IsActive = false; await Db.SaveChangesAsync(); return BackWithSuccess("Dịch vụ đã phát sinh giao dịch nên được ngừng áp dụng (không xóa).", nameof(Index)); }
         Db.ServiceItems.Remove(s);
         await Db.SaveChangesAsync();
@@ -103,7 +103,7 @@ public class SpeciesController : AppController
     {
         var b = await Db.Breeds.FindAsync(id);
         if (b == null) return NotFound();
-        if (await Db.Pets.AnyAsync(p => p.BreedId == id)) return BackWithError("Giống đang được dùng cho thú cưng, không xóa được.", nameof(Index));
+        if (await Db.Pets.IgnoreQueryFilters().AnyAsync(p => p.BreedId == id)) return BackWithError("Giống đang được dùng cho thú cưng, không xóa được.", nameof(Index));
         Db.Breeds.Remove(b);
         await Db.SaveChangesAsync();
         return BackWithSuccess("Đã xóa giống.", nameof(Index));
@@ -114,7 +114,7 @@ public class SpeciesController : AppController
     {
         var s = await Db.Species.Include(x => x.Breeds).FirstOrDefaultAsync(x => x.Id == id);
         if (s == null) return NotFound();
-        if (await Db.Pets.AnyAsync(p => p.SpeciesId == id)) return BackWithError("Loài đang được dùng, không xóa được.", nameof(Index));
+        if (await Db.Pets.IgnoreQueryFilters().AnyAsync(p => p.SpeciesId == id)) return BackWithError("Loài đang được dùng, không xóa được.", nameof(Index));
         Db.Breeds.RemoveRange(s.Breeds);
         Db.Species.Remove(s);
         await Db.SaveChangesAsync();
@@ -128,34 +128,50 @@ public class CagesController : AppController
 {
     public CagesController(PetDbContext db) : base(db) { }
 
+    /// <summary>Chuồng của chi nhánh đang làm việc</summary>
     public async Task<IActionResult> Index()
     {
         ViewBag.Busy = await Db.Admissions.Where(a => a.Status == AdmissionStatus.Active && a.CageId != null).Select(a => a.CageId!.Value).ToListAsync();
+        ViewBag.BranchName = await Db.Branches.Where(b => b.Id == Me.BranchId).Select(b => b.Name).FirstOrDefaultAsync();
         return View(await Db.Cages.AsNoTracking().OrderBy(c => c.Code).ToListAsync());
     }
 
-    [RequirePerm(Perm.Catalog)]
-    public IActionResult Create() => View("Form", new Cage());
+    // Quản lý danh mục hoặc nhân viên phụ trách nội trú đều thêm / sửa được chuồng của chi nhánh mình
+    public async Task<IActionResult> Create()
+    {
+        ViewBag.BranchName = await Db.Branches.Where(b => b.Id == Me.BranchId).Select(b => b.Name).FirstOrDefaultAsync();
+        return View("Form", new Cage());
+    }
 
-    [RequirePerm(Perm.Catalog)]
     public async Task<IActionResult> Edit(int id)
     {
         var c = await Db.Cages.FindAsync(id);
-        return c == null ? NotFound() : View("Form", c);
+        if (c == null) return NotFound();
+        ViewBag.BranchName = await Db.Branches.Where(b => b.Id == c.BranchId).Select(b => b.Name).FirstOrDefaultAsync();
+        return View("Form", c);
     }
 
-    [HttpPost, ValidateAntiForgeryToken, RequirePerm(Perm.Catalog)]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(Cage m)
     {
         m.Code = (m.Code ?? "").Trim().ToUpperInvariant();
-        if (await Db.Cages.AnyAsync(c => c.Code == m.Code && c.Id != m.Id)) ModelState.AddModelError(nameof(m.Code), "Mã chuồng đã tồn tại.");
-        if (!ModelState.IsValid) return View("Form", m);
-        if (m.Id == 0) Db.Cages.Add(m); else Db.Cages.Update(m);
+        // Mã chuồng duy nhất trong chi nhánh (các chi nhánh có thể cùng dùng mã S01, M01...)
+        if (await Db.Cages.AnyAsync(c => c.Code == m.Code && c.Id != m.Id)) ModelState.AddModelError(nameof(m.Code), "Mã chuồng đã tồn tại ở chi nhánh này.");
+        if (!ModelState.IsValid)
+        {
+            ViewBag.BranchName = await Db.Branches.Where(b => b.Id == Me.BranchId).Select(b => b.Name).FirstOrDefaultAsync();
+            return View("Form", m);
+        }
+        Cage c;
+        if (m.Id == 0) { c = new Cage(); Db.Cages.Add(c); }
+        else if (await Db.Cages.FirstOrDefaultAsync(x => x.Id == m.Id) is { } found) c = found;
+        else return NotFound();
+        c.Code = m.Code; c.Name = m.Name.Trim(); c.Size = m.Size?.Trim(); c.IsIsolation = m.IsIsolation; c.DailyRate = m.DailyRate; c.IsActive = m.IsActive;
         await Db.SaveChangesAsync();
-        return BackWithSuccess($"Đã lưu chuồng {m.Code}.", nameof(Index));
+        return BackWithSuccess($"Đã lưu chuồng {c.Code}.", nameof(Index));
     }
 
-    [HttpPost, ValidateAntiForgeryToken, RequirePerm(Perm.Catalog)]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var c = await Db.Cages.FindAsync(id);

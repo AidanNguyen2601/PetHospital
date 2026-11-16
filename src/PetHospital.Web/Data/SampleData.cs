@@ -36,6 +36,12 @@ public static class SampleData
         var uStock = U("kho", "Huỳnh Văn Phúc", AppRoles.Warehouse);
         await db.SaveChangesAsync();
         var vets = new[] { vAn, vBinh, vChau, uManager };
+        // Chi nhánh: quản trị + quản lý làm toàn chuỗi, nhân viên thuộc chi nhánh mặc định
+        var mainBranch = db.WriteBranchId;
+        uAdmin.AllBranches = true; uManager.AllBranches = true;
+        foreach (var u in new[] { vAn, vBinh, vChau, uReception, uCashier, uStock }) db.UserBranches.Add(new UserBranch { UserId = u.Id, BranchId = mainBranch });
+        await db.SaveChangesAsync();
+        var bc = await db.WriteBranchCodeAsync();
 
         // ---------- Dịch vụ ----------
         ServiceItem S(string code, string name, ServiceKind kind, decimal price, int minutes = 30, string unit = "Lần")
@@ -129,15 +135,15 @@ public static class SampleData
             await db.SaveChangesAsync();
         }
         var d1 = today.AddDays(-75);
-        await Receive($"NK{d1:yyMM}-0001", d1, "Công ty TNHH Dược Thú y Sài Gòn",
+        await Receive($"{bc}-NK{d1:yyMM}-0001", d1, "Công ty TNHH Dược Thú y Sài Gòn",
             allProducts.Select(p => (p, p.Unit is "Viên" or "Cái" or "ml" or "Gói" ? 1500m : p.Kind == ProductKind.Vaccine ? 120m : p.Unit is "Lon" ? 120m : 40m,
                 p.Kind == ProductKind.Vaccine ? 14 : 24)));
         var d2 = today.AddDays(-30);
-        await Receive($"NK{d2:yyMM}-0002", d2, "Công ty CP Thức ăn & Phụ kiện Thú cưng Việt",
+        await Receive($"{bc}-NK{d2:yyMM}-0002", d2, "Công ty CP Thức ăn & Phụ kiện Thú cưng Việt",
             allProducts.Where(p => p.Kind is ProductKind.Food or ProductKind.Accessory).Select(p => (p, p.Unit is "Gói" or "Lon" ? 120m : 20m, 12)));
         // Lô vắc-xin dại sắp hết hạn (minh họa cảnh báo) + thuốc nhỏ tai gần hết hàng
         var d3 = today.AddDays(-8);
-        await Receive($"NK{d3:yyMM}-0003", d3, "Công ty TNHH Dược Thú y Sài Gòn", new[] { (vxRabies, 10m, 1), (melox, 5m, 2) });
+        await Receive($"{bc}-NK{d3:yyMM}-0003", d3, "Công ty TNHH Dược Thú y Sài Gòn", new[] { (vxRabies, 10m, 1), (melox, 5m, 2) });
 
         // ---------- Chuồng ----------
         Cage Cg(string code, string name, string size, decimal rate, bool iso = false)
@@ -209,11 +215,15 @@ public static class SampleData
         var seq = new Dictionary<string, int>();
         string Code(string prefix, DateTime at)
         {
-            var head = $"{prefix}{at:yyMM}-";
+            var head = $"{bc}-{prefix}{at:yyMM}-";
             seq[head] = seq.GetValueOrDefault(head) + 1;
             return head + seq[head].ToString("0000");
         }
-        foreach (var r in await db.StockReceipts.ToListAsync()) seq[r.Code[..7]] = Math.Max(seq.GetValueOrDefault(r.Code[..7]), int.Parse(r.Code[7..]));
+        foreach (var r in await db.StockReceipts.ToListAsync())
+        {
+            var cut = r.Code.LastIndexOf('-') + 1;
+            seq[r.Code[..cut]] = Math.Max(seq.GetValueOrDefault(r.Code[..cut]), int.Parse(r.Code[cut..]));
+        }
 
         // ---------- Lượt khám + hóa đơn ----------
         var diagnoses = new (string Reason, string Symptoms, string Exam, string Diagnosis, string Treatment, ServiceItem[] Services, (Product P, decimal Q, string Dose, int Days)[] Meds)[]

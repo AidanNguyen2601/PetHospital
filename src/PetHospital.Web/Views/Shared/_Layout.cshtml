@@ -1,3 +1,4 @@
+@using Microsoft.EntityFrameworkCore
 @inject PetHospital.Web.Data.PetDbContext Db
 @{
     var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
@@ -7,6 +8,9 @@
     var pendingInv = Me.HasAny(Perm.InvoiceManage) ? await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(Db.Invoices, i => i.Status == InvoiceStatus.Draft) : 0;
     var roleNames = string.Join(", ", Me.Roles.Select(r => AppRoles.DisplayName(r)));
     var initial = Me.FullName.Length > 0 ? char.ToUpper(Me.FullName.Split(' ').Last()[0]) : '?';
+    var myBranches = (await Db.Branches.AsNoTracking().Where(b => b.IsActive).OrderBy(b => b.SortOrder).ThenBy(b => b.Name).ToListAsync()).Where(b => Me.CanAccessBranch(b.Id)).ToList();
+    var curBranch = await Db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == Me.BranchId);
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
 }
 <!DOCTYPE html>
 <html lang="vi">
@@ -86,6 +90,7 @@
                     <div class="nav-items"><div class="nav-inner">
                         <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("pill")<span>Thuốc & hàng hóa</span></a>
                         <a class="@Active("Receipts")" asp-controller="Receipts" asp-action="Index">@Icon("download")<span>Phiếu nhập kho</span></a>
+                        <a class="@Active("Transfers")" asp-controller="Transfers" asp-action="Index">@Icon("transfer")<span>Chuyển kho chi nhánh</span></a>
                     </div></div>
                 </div>
             }
@@ -127,7 +132,8 @@
                         }
                         @if (Me.Has(Perm.System))
                         {
-                            <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin phòng khám</span></a>
+                            <a class="@Active("Branches")" asp-controller="Branches" asp-action="Index">@Icon("building")<span>Chi nhánh</span></a>
+                            <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin chuỗi                             <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin phòng khám</span></a> tham số</span></a>
                             <a class="@Active("Audit")" asp-controller="Audit" asp-action="Index">@Icon("history")<span>Nhật ký hệ thống</span></a>
                             <a class="@Active("DemoData")" asp-controller="DemoData" asp-action="Index">@Icon("flow")<span>Dữ liệu mô phỏng</span></a>
                         }
@@ -166,6 +172,27 @@
                         <input name="q" class="form-control form-control-sm" placeholder="SĐT, tên khách, mã thú cưng, vi mạch…" aria-label="Tìm nhanh" />
                     </form>
                 }
+                @if (myBranches.Count > 1)
+                {
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle branch-btn" data-bs-toggle="dropdown" title="Chi nhánh đang làm việc">@Icon("building") <span class="d-none d-sm-inline">@curBranch?.Name</span></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><span class="dropdown-item-text small text-muted">Chuyển chi nhánh làm việc</span></li>
+                            @foreach (var b in myBranches)
+                            {
+                                <li>
+                                    <form asp-controller="Branches" asp-action="Switch" asp-route-id="@b.Id" asp-route-returnUrl="@returnUrl" method="post">
+                                        <button class="dropdown-item @(b.Id == curBranch?.Id ? "active" : "")">@b.Code – @b.Name</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+                else if (curBranch != null)
+                {
+                    <span class="badge bg-light text-dark border d-none d-md-inline-flex align-items-center gap-1 branch-btn" title="Chi nhánh đang làm việc">@Icon("building") @curBranch.Name</span>
+                }
                 <div class="dropdown">
                     <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">@Icon("plus") <span class="d-none d-sm-inline">Tạo nhanh</span></button>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -178,6 +205,7 @@
                         @if (Me.Has(Perm.Admission)) { <li><a class="dropdown-item" asp-controller="Admissions" asp-action="Create">@Icon("bed")Nhận lưu chuồng</a></li> }
                         @if (Me.Has(Perm.InvoiceManage)) { <li><hr class="dropdown-divider" /></li><li><a class="dropdown-item" asp-controller="Invoices" asp-action="Create">@Icon("cart")Bán hàng / hóa đơn</a></li> }
                         @if (Me.Has(Perm.StockManage)) { <li><a class="dropdown-item" asp-controller="Receipts" asp-action="Create">@Icon("download")Nhập kho</a></li> }
+                        @if (Me.Has(Perm.StockManage)) { <li><a class="dropdown-item" asp-controller="Transfers" asp-action="Create">@Icon("transfer")Chuyển kho chi nhánh</a></li> }
                     </ul>
                 </div>
                 <div class="dropdown">

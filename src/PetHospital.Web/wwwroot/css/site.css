@@ -273,6 +273,10 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .bell .ico { width: 18px; height: 18px; }
 .bell-count { position: absolute; top: -4px; right: -6px; font-size: .65rem; }
 .user-btn { display: inline-flex; align-items: center; gap: 6px; }
+.branch-btn { display: inline-flex; align-items: center; gap: 4px; max-width: 240px; }
+.branch-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branch-btn .ico { width: 15px; height: 15px; }
+.branch-tag { font-size: .7rem; font-weight: 500; }
 .stat-link { text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s; }
 .stat-link:hover { box-shadow: 0 4px 14px rgba(16,24,40,.08); transform: translateY(-1px); color: inherit; }
 .noti-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }

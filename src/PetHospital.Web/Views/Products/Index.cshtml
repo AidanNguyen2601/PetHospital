@@ -44,7 +44,7 @@
                         <td class="text-end fw-semibold @(p.Stock <= 0 ? "text-danger" : p.Stock <= p.MinStock ? "text-warning" : "")">@p.Stock.ToQty()</td>
                         <td class="text-end small text-muted">@p.MinStock.ToQty()</td>
                         <td class="text-end money">@p.SalePrice.ToMoney()</td>
-                        @if (Me.CanSeeCost) { <td class="text-end money text-muted">@p.CostPrice.ToMoney()</td> }
+                        @if (Me.CanSeeCost) { <td class="text-end money text-muted">@p.AvgCost.ToMoney()</td> }
                         <td class="small text-nowrap @(exp.HasValue && exp <= warn ? (exp < DateTime.Today ? "text-danger fw-semibold" : "text-warning fw-semibold") : "")">@exp.ToDate()</td>
                     </tr>
                 }

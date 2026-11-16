@@ -4,6 +4,8 @@
     ViewData["Title"] = def.Name; ViewData["Icon"] = def.Icon;
     DateTime from = ViewBag.From, to = ViewBag.To;
     var print = ViewData["Layout"] as string == "_PrintLayout";
+    var branchOptions = (List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.BranchOptions;
+    string? branchParam = ViewBag.BranchParam;
     string Cell(object? v) => v switch
     {
         null => "",
@@ -24,6 +26,13 @@ else
 {
     <form method="get" class="toolbar">
         <a class="btn btn-sm btn-light" asp-action="Index">&laquo; Danh sách báo cáo</a>
+        @if (branchOptions.Count > 1 && def.Id != "branches")
+        {
+            <select name="branch" class="form-select form-select-sm ms-2" style="max-width:220px" onchange="this.form.submit()" title="Phạm vi chi nhánh">
+                @foreach (var o in branchOptions) { <option value="@o.Value" selected="@o.Selected">@o.Text</option> }
+            </select>
+        }
+        else if (branchParam != null) { <input type="hidden" name="branch" value="@branchParam" /> }
         @if (def.Id != "debts")
         {
             <span class="small text-muted ms-2">Từ</span><input type="date" name="from" value="@from.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
@@ -31,8 +40,8 @@ else
             <button class="btn btn-sm btn-outline-secondary">Xem</button>
         }
         <div class="ms-auto d-flex gap-2">
-            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="xlsx">@Icon("download") Excel</a>
-            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="print" target="_blank">@Icon("print") In / PDF</a>
+            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-branch="@branchParam" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="xlsx">@Icon("download") Excel</a>
+            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-branch="@branchParam" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="print" target="_blank">@Icon("print") In / PDF</a>
         </div>
     </form>
     <div class="small text-muted mb-2">@Model.Subtitle</div>

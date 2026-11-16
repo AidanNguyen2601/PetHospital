@@ -1,0 +1,44 @@
+@model List<Branch>
+@{
+    ViewData["Title"] = "Chi nhánh"; ViewData["Icon"] = "building";
+    var users = (Dictionary<int, int>)ViewBag.Users; var cages = (Dictionary<int, int>)ViewBag.Cages;
+    var visits = (Dictionary<int, int>)ViewBag.Visits; var revenue = (Dictionary<int, decimal>)ViewBag.Revenue;
+    bool share = ViewBag.Share;
+}
+<div class="toolbar">
+    <div class="small text-muted">
+        Khách hàng & hồ sơ thú cưng: <b>@(share ? "dùng chung toàn chuỗi" : "riêng từng chi nhánh")</b>
+        · <a asp-controller="Settings" asp-action="Index">đổi cài đặt</a>
+    </div>
+    <a class="btn btn-sm btn-primary ms-auto" asp-action="Create">@Icon("plus") Thêm chi nhánh</a>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Mã</th><th>Tên chi nhánh</th><th>Địa chỉ / liên hệ</th><th class="text-end">Nhân viên</th><th class="text-end">Chuồng</th><th class="text-end">Lượt khám tháng này</th><th class="text-end">Thu tháng này</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var b in Model)
+                {
+                    <tr class="@(b.IsActive ? "" : "text-muted")">
+                        <td class="fw-semibold">@b.Code</td>
+                        <td>@b.Name @if (b.Id == Me.BranchId) { <span class="badge bg-info text-dark">đang làm việc</span> }</td>
+                        <td class="small">@b.Address<div class="text-muted">@b.Phone @(string.IsNullOrEmpty(b.Email) ? "" : "· " + b.Email)</div></td>
+                        <td class="text-end">@users.GetValueOrDefault(b.Id)</td>
+                        <td class="text-end">@cages.GetValueOrDefault(b.Id)</td>
+                        <td class="text-end">@visits.GetValueOrDefault(b.Id)</td>
+                        <td class="text-end money">@revenue.GetValueOrDefault(b.Id).ToMoney()</td>
+                        <td>@if (b.IsActive) { <span class="badge bg-success">Hoạt động</span> } else { <span class="badge bg-secondary">Ngừng</span> }</td>
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-sm btn-light" asp-action="Edit" asp-route-id="@b.Id">Sửa</a>
+                            <form asp-action="Delete" asp-route-id="@b.Id" method="post" class="d-inline" data-confirm="Xóa chi nhánh @b.Name? Chi nhánh đã có dữ liệu sẽ chỉ chuyển sang ngừng hoạt động."><button class="btn btn-sm btn-link text-danger">Xóa</button></form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="small text-muted mt-3">
+    Mỗi chi nhánh có chuồng lưu trú, kho thuốc, lịch hẹn, phiếu khám, hóa đơn riêng. Danh mục dịch vụ – bảng giá, thuốc – hàng hóa, loài – giống dùng chung toàn chuỗi.
+    Số chứng từ có tiền tố mã chi nhánh (VD: <code>CN01-HD2611-0001</code>).
+</div>

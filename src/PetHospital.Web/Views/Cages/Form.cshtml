@@ -5,6 +5,7 @@
 <form asp-action="Save" method="post" class="card" style="max-width:700px">
     <div class="card-body">
         <input type="hidden" asp-for="Id" />
+        <div class="small text-muted mb-3">Chi nhánh: <b>@ViewBag.BranchName</b> (mã chuồng chỉ cần không trùng trong chi nhánh)</div>
         <div class="row g-3">
             <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" /><span asp-validation-for="Code" class="text-danger small"></span></div>
             <div class="col-md-9"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>

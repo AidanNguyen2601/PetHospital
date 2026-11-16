@@ -1,15 +1,23 @@
 @model Dictionary<string, string>
 @{
-    ViewData["Title"] = "Thông tin phòng khám & tham số"; ViewData["Icon"] = "settings";
+    ViewData["Title"] = "Thông tin chuỗi phòng khám & tham số"; ViewData["Icon"] = "settings";
 }
 <form asp-action="Save" method="post" class="card" style="max-width:820px">
     <div class="card-body">
-        <div class="small text-muted mb-3">Thông tin này in trên hóa đơn, đơn thuốc, phiếu nhập kho và báo cáo.</div>
+        <div class="small text-muted mb-3">Thông tin chung in trên hóa đơn, đơn thuốc, phiếu nhập kho và báo cáo. Địa chỉ, điện thoại riêng của từng cơ sở khai báo tại <a asp-controller="Branches" asp-action="Index">Quản trị › Chi nhánh</a>.</div>
         @foreach (var (key, label, _) in SettingsService.All)
         {
             <div class="mb-3">
                 <label class="form-label" for="@key.Replace(".", "_")">@label</label>
-                @if (key == SettingsService.InvoiceFooter || key == SettingsService.ClinicAddress)
+                @if (key == SettingsService.ShareCustomers)
+                {
+                    <select class="form-select" name="@key" id="@key.Replace(".", "_")">
+                        <option value="1" selected="@(Model[key] != "0")">Dùng chung toàn chuỗi – khách đến chi nhánh nào cũng tra được hồ sơ, lịch sử khám, tiêm phòng</option>
+                        <option value="0" selected="@(Model[key] == "0")">Riêng từng chi nhánh – mỗi chi nhánh chỉ thấy khách hàng do chi nhánh mình tạo</option>
+                    </select>
+                    <div class="small text-muted mt-1">Lịch hẹn, phiếu khám, hóa đơn, nội trú, kho luôn tách theo chi nhánh. Khi dùng chung, hồ sơ bệnh án của thú cưng hiển thị lượt khám ở mọi chi nhánh.</div>
+                }
+                else if (key == SettingsService.InvoiceFooter || key == SettingsService.ClinicAddress)
                 {
                     <textarea class="form-control" name="@key" id="@key.Replace(".", "_")" rows="2">@Model[key]</textarea>
                 }

@@ -80,7 +80,7 @@ public class AdmissionsController : AppController
         if (pet == null) ModelState.AddModelError(nameof(m.PetId), "Chọn khách hàng và thú cưng.");
         if (m.CageId.HasValue && await Db.Admissions.AnyAsync(a => a.CageId == m.CageId && a.Status == AdmissionStatus.Active && a.Id != m.Id))
             ModelState.AddModelError(nameof(m.CageId), "Chuồng đang có thú cưng khác.");
-        if (m.Id == 0 && pet != null && await Db.Admissions.AnyAsync(a => a.PetId == pet.Id && a.Status == AdmissionStatus.Active))
+        if (m.Id == 0 && pet != null && await Db.Admissions.IgnoreQueryFilters().AnyAsync(a => a.PetId == pet.Id && a.Status == AdmissionStatus.Active))
             ModelState.AddModelError(nameof(m.PetId), "Thú cưng đang lưu chuồng.");
         if (!ModelState.IsValid)
         {
@@ -93,7 +93,7 @@ public class AdmissionsController : AppController
         {
             a = new Admission
             {
-                Code = await Codes.NextAsync(Db.Admissions.Select(x => x.Code), "NT"), PetId = pet!.Id, OwnerId = pet.OwnerId, VisitId = m.VisitId,
+                Code = await Codes.NextAsync(Db, Db.Admissions.Select(x => x.Code), "NT"), PetId = pet!.Id, OwnerId = pet.OwnerId, VisitId = m.VisitId,
                 AdmitAt = DateTime.Now, CreatedById = CurrentUserId
             };
             Db.Admissions.Add(a);

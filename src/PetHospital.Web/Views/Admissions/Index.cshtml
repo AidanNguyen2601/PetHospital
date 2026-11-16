@@ -11,7 +11,10 @@
 @if (tab == "board")
 {
     var cages = (List<Cage>)ViewBag.Cages; var active = (List<Admission>)ViewBag.Active;
-    <div class="small text-muted mb-2">@active.Count / @cages.Count chuồng đang sử dụng</div>
+    <div class="small text-muted mb-2 d-flex align-items-center gap-2">@active.Count / @cages.Count chuồng đang sử dụng
+        @if (Me.HasAny(Perm.Catalog, Perm.Admission)) { <a class="btn btn-sm btn-link p-0" asp-controller="Cages" asp-action="Index">Quản lý chuồng</a><a class="btn btn-sm btn-outline-primary py-0" asp-controller="Cages" asp-action="Create">@Icon("plus") Thêm chuồng</a> }
+    </div>
+    @if (cages.Count == 0) { <div class="alert alert-warning">Chi nhánh này chưa khai báo chuồng lưu trú. Bấm <b>Thêm chuồng</b> để tạo.</div> }
     <div class="cage-board">
         @foreach (var c in cages)
         {

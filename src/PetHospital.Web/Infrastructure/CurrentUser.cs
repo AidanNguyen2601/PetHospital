@@ -56,6 +56,19 @@ public class CurrentUser
 
     /// <summary>Được xem giá vốn / lãi gộp</summary>
     public bool CanSeeCost => Has(Perm.StockCost);
+
+    // ----- Chi nhánh -----
+
+    /// <summary>Chi nhánh đang làm việc</summary>
+    public int BranchId => BranchScope.Resolve(_http.HttpContext) ?? 0;
+
+    /// <summary>Làm việc ở mọi chi nhánh (quản trị / quản lý chuỗi)</summary>
+    public bool AllBranches => Principal.FindFirstValue(BranchScope.AllowedClaim) == BranchScope.All;
+
+    /// <summary>Chi nhánh được làm việc; null = mọi chi nhánh</summary>
+    public List<int>? BranchIds => BranchScope.AllowedIds(Principal);
+
+    public bool CanAccessBranch(int branchId) => BranchScope.IsAllowed(Principal.FindFirstValue(BranchScope.AllowedClaim), branchId);
 }
 
 /// <summary>Yêu cầu quyền chức năng: [RequirePerm(Perm.X)] (nhiều quyền = chỉ cần một)</summary>

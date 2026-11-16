@@ -41,7 +41,8 @@ public class HomeController : AppController
 
         if (Me.HasAny(Perm.StockView, Perm.StockManage))
         {
-            vm.LowStock = await Db.Products.AsNoTracking().Where(p => p.IsActive && p.Stock <= p.MinStock).OrderBy(p => p.Stock).Take(10).ToListAsync();
+            vm.LowStock = await Db.Products.AsNoTracking().Include(p => p.Stocks).Where(p => p.IsActive && p.Stocks.Sum(s => s.Quantity) <= p.MinStock)
+                .OrderBy(p => p.Stocks.Sum(s => s.Quantity)).Take(10).ToListAsync();
             var warn = today.AddDays(await settings.GetIntAsync(SettingsService.ExpiryWarnDays, 60));
             vm.Expiring = await Db.ProductBatches.AsNoTracking().Include(b => b.Product)
                 .Where(b => b.Quantity > 0 && b.ExpiryDate != null && b.ExpiryDate <= warn).OrderBy(b => b.ExpiryDate).Take(10).ToListAsync();

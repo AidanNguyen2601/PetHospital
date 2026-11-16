@@ -4,119 +4,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace PetHospital.Web.Infrastructure;
 
-/// <summary>Sổ kho: nhập theo lô, xuất theo hạn dùng gần nhất trước (FEFO), giá vốn bình quân</summary>
-public class StockService
-{
-    private readonly PetDbContext _db;
-    private readonly CurrentUser _me;
-    public StockService(PetDbContext db, CurrentUser me) { _db = db; _me = me; }
-
-    private int? UserId => _me.IsAuthenticated ? _me.Id : null;
-
-    /// <summary>Ghi sổ phiếu nhập: tạo lô, cộng tồn, tính lại giá vốn bình quân</summary>
-    public async Task PostReceiptAsync(StockReceipt r)
-    {
-        foreach (var line in r.Lines)
-        {
-            var product = await _db.Products.FirstAsync(p => p.Id == line.ProductId);
-            var batch = new ProductBatch
-            {
-                ProductId = product.Id, LotNo = line.LotNo, ExpiryDate = line.ExpiryDate, Quantity = line.Quantity,
-                UnitCost = line.UnitCost, ReceivedAt = r.Date
-            };
-            _db.ProductBatches.Add(batch);
-            var before = Math.Max(0, product.Stock);
-            var after = before + line.Quantity;
-            product.CostPrice = after > 0 ? Math.Round((before * product.CostPrice + line.Quantity * line.UnitCost) / after, 2) : line.UnitCost;
-            product.Stock += line.Quantity;
-            _db.StockMoves.Add(new StockMove
-            {
-                ProductId = product.Id, Batch = batch, Type = StockMoveType.Receipt, Quantity = line.Quantity, UnitCost = line.UnitCost,
-                Balance = product.Stock, RefType = nameof(StockReceipt), RefId = r.Id, RefCode = r.Code, Note = r.Supplier, UserId = UserId
-            });
-        }
-        r.State = DocState.Posted;
-        r.PostedAt = DateTime.Now;
-    }
-
-    /// <summary>Xuất kho theo FEFO. Trả về tổng giá vốn xuất.</summary>
-    public async Task<decimal> IssueAsync(Product product, decimal qty, StockMoveType type, string refType, int refId, string refCode, string? note = null)
-    {
-        var remaining = qty;
-        decimal cost = 0;
-        var batches = await _db.ProductBatches.Where(b => b.ProductId == product.Id && b.Quantity > 0)
-            .OrderBy(b => b.ExpiryDate == null).ThenBy(b => b.ExpiryDate).ThenBy(b => b.Id).ToListAsync();
-        foreach (var b in batches)
-        {
-            if (remaining <= 0) break;
-            var take = Math.Min(b.Quantity, remaining);
-            if (take <= 0) continue;
-            b.Quantity -= take;
-            remaining -= take;
-            product.Stock -= take;
-            cost += take * b.UnitCost;
-            _db.StockMoves.Add(new StockMove
-            {
-                ProductId = product.Id, BatchId = b.Id, Type = type, Quantity = -take, UnitCost = b.UnitCost, Balance = product.Stock,
-                RefType = refType, RefId = refId, RefCode = refCode, Note = note, UserId = UserId
-            });
-        }
-        if (remaining > 0)
-        {
-            // Hàng không theo lô (tồn đầu kỳ chưa khai báo lô): xuất theo giá vốn bình quân
-            product.Stock -= remaining;
-            cost += remaining * product.CostPrice;
-            _db.StockMoves.Add(new StockMove
-            {
-                ProductId = product.Id, Type = type, Quantity = -remaining, UnitCost = product.CostPrice, Balance = product.Stock,
-                RefType = refType, RefId = refId, RefCode = refCode, Note = note, UserId = UserId
-            });
-        }
-        return Math.Round(cost, 0);
-    }
-
-    /// <summary>Hoàn nhập toàn bộ lượng đã xuất cho một chứng từ (hủy hóa đơn)</summary>
-    public async Task ReturnAsync(string refType, int refId, string refCode, string? note)
-    {
-        var moves = await _db.StockMoves.Where(m => m.RefType == refType && m.RefId == refId && m.Quantity < 0).ToListAsync();
-        foreach (var m in moves)
-        {
-            var product = await _db.Products.FirstAsync(p => p.Id == m.ProductId);
-            var qty = -m.Quantity;
-            if (m.BatchId.HasValue)
-            {
-                var batch = await _db.ProductBatches.FirstOrDefaultAsync(b => b.Id == m.BatchId);
-                if (batch != null) batch.Quantity += qty;
-            }
-            product.Stock += qty;
-            _db.StockMoves.Add(new StockMove
-            {
-                ProductId = product.Id, BatchId = m.BatchId, Type = StockMoveType.Return, Quantity = qty, UnitCost = m.UnitCost, Balance = product.Stock,
-                RefType = refType, RefId = refId, RefCode = refCode, Note = note, UserId = UserId
-            });
-        }
-    }
-
-    /// <summary>Điều chỉnh tồn (kiểm kê, hàng hỏng / hết hạn). delta &gt; 0: tạo lô mới; delta &lt; 0: xuất FEFO.</summary>
-    public async Task AdjustAsync(Product product, decimal delta, string? lotNo, DateTime? expiry, string reason)
-    {
-        var code = $"DC{DateTime.Now:yyMMddHHmmss}";
-        if (delta > 0)
-        {
-            var batch = new ProductBatch { ProductId = product.Id, LotNo = lotNo, ExpiryDate = expiry, Quantity = delta, UnitCost = product.CostPrice };
-            _db.ProductBatches.Add(batch);
-            product.Stock += delta;
-            _db.StockMoves.Add(new StockMove
-            {
-                ProductId = product.Id, Batch = batch, Type = StockMoveType.AdjustIn, Quantity = delta, UnitCost = product.CostPrice, Balance = product.Stock,
-                RefType = "Adjust", RefCode = code, Note = reason, UserId = UserId
-            });
-        }
-        else if (delta < 0)
-            await IssueAsync(product, -delta, StockMoveType.AdjustOut, "Adjust", 0, code, reason);
-    }
-}
-
 /// <summary>Hóa đơn: lập từ phiếu khám / nội trú, phát hành (xuất kho), thu tiền, hủy</summary>
 public class InvoiceService
 {
@@ -125,7 +12,7 @@ public class InvoiceService
     private readonly CurrentUser _me;
     public InvoiceService(PetDbContext db, StockService stock, CurrentUser me) { _db = db; _stock = stock; _me = me; }
 
-    public Task<string> NextCodeAsync() => Codes.NextAsync(_db.Invoices.Select(i => i.Code), "HD");
+    public Task<string> NextCodeAsync() => Codes.NextAsync(_db, _db.Invoices.Select(i => i.Code), "HD");
 
     /// <summary>Lập hóa đơn nháp từ phiếu khám: dịch vụ + thuốc kê đơn + vắc-xin đã tiêm</summary>
     public async Task<Invoice> CreateFromVisitAsync(Visit v)
@@ -192,7 +79,7 @@ public class InvoiceService
         if (inv.Lines.Count == 0) return "Hóa đơn chưa có dòng hàng / dịch vụ.";
         var need = inv.Lines.Where(l => l.ProductId.HasValue).GroupBy(l => l.ProductId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
         var ids = need.Keys.ToList();
-        var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        var products = await _db.Products.Include(p => p.Stocks).Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
         var shortage = need.Where(n => products[n.Key].Stock < n.Value)
             .Select(n => $"{products[n.Key].Name} (cần {n.Value.ToQty()}, tồn {products[n.Key].Stock.ToQty()})").ToList();
         if (shortage.Count > 0) return "Không đủ tồn kho: " + string.Join("; ", shortage);

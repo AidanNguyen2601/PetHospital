@@ -3,13 +3,14 @@
     var p = Model;
     ViewData["Title"] = p.Name; ViewData["Icon"] = "pill";
     var batches = (List<ProductBatch>)ViewBag.Batches; var moves = (List<StockMove>)ViewBag.Moves; DateTime from = ViewBag.From; DateTime warn = ViewBag.Warn;
-    var cost = Me.CanSeeCost;
+    var cost = Me.CanSeeCost; var others = (List<BranchStockRow>)ViewBag.OtherStocks;
 }
 <div class="d-flex flex-wrap gap-2 mb-3">
     @if (Me.Has(Perm.StockManage))
     {
         <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@p.Id">@Icon("edit") Sửa</a>
         <a class="btn btn-sm btn-outline-primary" asp-controller="Receipts" asp-action="Create">@Icon("download") Nhập kho</a>
+        <a class="btn btn-sm btn-outline-primary" asp-controller="Transfers" asp-action="Create" asp-route-productId="@p.Id">@Icon("transfer") Chuyển kho</a>
         <button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#adjustBox">@Icon("edit") Điều chỉnh tồn (kiểm kê)</button>
     }
 </div>
@@ -34,10 +35,11 @@
                     <dt class="col-5">Mã</dt><dd class="col-7">@p.Code @if (!p.IsActive) { <span class="badge bg-secondary">Ngừng</span> }</dd>
                     <dt class="col-5">Loại</dt><dd class="col-7">@p.Kind.GetDisplayName()</dd>
                     <dt class="col-5">Hoạt chất</dt><dd class="col-7">@p.Ingredient</dd>
-                    <dt class="col-5">Tồn kho</dt><dd class="col-7 fw-bold fs-5 @(p.Stock <= p.MinStock ? "text-danger" : "")">@p.Stock.ToQty() @p.Unit</dd>
+                    <dt class="col-5">Tồn kho (chi nhánh)</dt><dd class="col-7 fw-bold fs-5 @(p.Stock <= p.MinStock ? "text-danger" : "")">@p.Stock.ToQty() @p.Unit</dd>
+                    @if (others.Count > 0) { <dt class="col-5">Chi nhánh khác</dt><dd class="col-7 small">@foreach (var o in others) { <div>@o.Branch: <b>@o.Quantity.ToQty()</b> @p.Unit</div> }</dd> }
                     <dt class="col-5">Tồn tối thiểu</dt><dd class="col-7">@p.MinStock.ToQty()</dd>
                     <dt class="col-5">Giá bán</dt><dd class="col-7 money">@p.SalePrice.ToMoney()</dd>
-                    @if (cost) { <dt class="col-5">Giá vốn BQ</dt><dd class="col-7 money">@p.CostPrice.ToMoney()</dd> }
+                    @if (cost) { <dt class="col-5">Giá vốn BQ</dt><dd class="col-7 money">@p.AvgCost.ToMoney()</dd> }
                     @if (p.Kind == ProductKind.Vaccine) { <dt class="col-5">Nhắc lại sau</dt><dd class="col-7">@p.BoosterDays ngày</dd> }
                     <dt class="col-5">Cách dùng</dt><dd class="col-7 small">@p.DefaultUsage</dd>
                 </dl>

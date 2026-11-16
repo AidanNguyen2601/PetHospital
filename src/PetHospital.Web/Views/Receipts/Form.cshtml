@@ -33,7 +33,7 @@
                                         <optgroup label="@g.Key.GetDisplayName()">
                                             @foreach (var p in g)
                                             {
-                                                <option value="@p.Id" data-price="@p.CostPrice.ToString("0", inv)" data-stock="@p.Stock.ToQty() @p.Unit" selected="@(p.Id == l.ProductId)">@p.Code – @p.Name (@p.Unit)</option>
+                                                <option value="@p.Id" data-price="@p.AvgCost.ToString("0", inv)" data-stock="@p.Stock.ToQty() @p.Unit" selected="@(p.Id == l.ProductId)">@p.Code – @p.Name (@p.Unit)</option>
                                             }
                                         </optgroup>
                                     }

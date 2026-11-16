@@ -1,7 +1,8 @@
 @model PagedList<AppUser>
 @{
     ViewData["Title"] = "Người dùng"; ViewData["Icon"] = "users";
-    var f = (ListFilter)ViewBag.Filter; string? role = ViewBag.Role;
+    var f = (ListFilter)ViewBag.Filter; string? role = ViewBag.Role; int? branchId = ViewBag.BranchId;
+    var branchNames = (Dictionary<int, string>)ViewBag.BranchNames;
 }
 <form method="get" class="toolbar">
     <input name="Q" value="@f.Q" class="form-control form-control-sm" style="max-width:240px" placeholder="Tên đăng nhập, họ tên, email…" />
@@ -9,13 +10,17 @@
         <option value="">-- Tất cả vai trò --</option>
         @foreach (var r in AppRoles.All) { <option value="@r.Code" selected="@(r.Code == role)">@r.Name</option> }
     </select>
+    <select name="branchId" class="form-select form-select-sm" style="max-width:220px" onchange="this.form.submit()">
+        <option value="">-- Tất cả chi nhánh --</option>
+        @foreach (var b in branchNames) { <option value="@b.Key" selected="@(b.Key == branchId)">@b.Value</option> }
+    </select>
     <button class="btn btn-sm btn-outline-secondary">Lọc</button>
     <a class="btn btn-sm btn-primary ms-auto" asp-action="Create">@Icon("plus") Thêm người dùng</a>
 </form>
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Điện thoại / email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th></tr></thead>
+            <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Chi nhánh</th><th>Điện thoại / email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th></tr></thead>
             <tbody>
                 @foreach (var u in Model.Items)
                 {
@@ -23,6 +28,7 @@
                         <td><a asp-action="Edit" asp-route-id="@u.Id" class="fw-semibold">@u.Username</a></td>
                         <td>@u.DisplayName @if (u.IsVet) { <span class="badge bg-info text-dark">Bác sĩ</span> }</td>
                         <td class="small">@(string.Join(", ", u.RoleList().Select(AppRoles.DisplayName)))</td>
+                        <td class="small">@if (u.AllBranches || u.RoleList().Contains(AppRoles.Admin)) { <span class="badge bg-primary">Toàn chuỗi</span> } else { @string.Join(", ", u.Branches.Select(b => branchNames.GetValueOrDefault(b.BranchId))) }</td>
                         <td class="small">@u.Phone<div class="text-muted">@u.Email</div></td>
                         <td class="small">@u.LastLoginAt.ToDateTime()</td>
                         <td>@if (u.IsActive) { <span class="badge bg-success">Hoạt động</span> } else { <span class="badge bg-secondary">Đã khóa</span> }</td>

@@ -20,12 +20,14 @@ public class ReportsController : AppController
         ("visits", "Lượt khám & chẩn đoán", "clipboard", "Lượt khám theo ngày và các chẩn đoán thường gặp"),
         ("debts", "Công nợ khách hàng", "wallet", "Hóa đơn chưa thu đủ theo khách hàng"),
         ("stock", "Nhập – xuất – tồn kho", "box", "Tồn đầu kỳ, nhập, xuất, tồn cuối kỳ từng mặt hàng"),
-        ("vaccines", "Thống kê tiêm phòng", "syringe", "Số mũi tiêm theo vắc-xin và loài")
+        ("vaccines", "Thống kê tiêm phòng", "syringe", "Số mũi tiêm theo vắc-xin và loài"),
+        ("branches", "So sánh chi nhánh", "building", "Lượt khám, doanh thu, thực thu, công nợ, nội trú của từng chi nhánh")
     };
 
     public IActionResult Index() => View();
 
-    public async Task<IActionResult> Show(string id, DateTime? from, DateTime? to, string? export)
+    /// <param name="branch">Phạm vi chi nhánh: trống = chi nhánh đang làm việc, 0 = toàn chuỗi (người dùng toàn chuỗi), &gt;0 = một chi nhánh được làm</param>
+    public async Task<IActionResult> Show(string id, DateTime? from, DateTime? to, string? export, int? branch)
     {
         var def = All.FirstOrDefault(r => r.Id == id);
         if (def.Id == null) return NotFound();
@@ -33,18 +35,35 @@ public class ReportsController : AppController
         var t = (to ?? DateTime.Today).Date;
         if (t < f) (f, t) = (t, f);
         var end = t.AddDays(1);
+
+        // ----- Phạm vi chi nhánh -----
+        var branches = (await Db.Branches.AsNoTracking().OrderBy(b => b.SortOrder).ThenBy(b => b.Name).ToListAsync())
+            .Where(b => Me.CanAccessBranch(b.Id)).ToList();
+        int? scope = Me.BranchId;
+        if (branch == 0 && Me.AllBranches) scope = null;
+        else if (branch > 0 && branches.Any(b => b.Id == branch)) scope = branch;
+        var options = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+        if (Me.AllBranches) options.Add(new("Toàn chuỗi (tất cả chi nhánh)", "0", scope == null));
+        options.AddRange(branches.Select(b => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem(b.Name, b.Id.ToString(), b.Id == scope)));
+        ViewBag.BranchOptions = options;
+        ViewBag.BranchParam = scope?.ToString() ?? "0";
+        var scopeName = scope == null ? "Toàn chuỗi" : branches.FirstOrDefault(b => b.Id == scope)?.Name;
+        Db.CurrentBranchId = scope;
+
         var table = id switch
         {
             "revenue" => await Revenue(f, end),
             "sales" => await Sales(f, end),
-            "vets" => await Vets(f, end),
+            "vets" => await Vets(f, end, scope),
             "visits" => await Visits(f, end),
             "debts" => await Debts(),
             "stock" => await Stock(f, end),
+            "branches" => await Branches(f, end, branches),
             _ => await Vaccines(f, end)
         };
         table.Title = def.Name;
         table.Subtitle ??= $"Từ {f:dd/MM/yyyy} đến {t:dd/MM/yyyy}";
+        if (id != "branches") table.Subtitle = $"{scopeName} · {table.Subtitle}";
         if (export == "xlsx")
         {
             var rows = table.Rows.ToList();
@@ -118,13 +137,15 @@ public class ReportsController : AppController
         return t;
     }
 
-    private async Task<ReportTable> Vets(DateTime from, DateTime end)
+    private async Task<ReportTable> Vets(DateTime from, DateTime end, int? scope)
     {
         var visits = await Db.Visits.Where(v => v.Status == VisitStatus.Completed && v.CompletedAt >= from && v.CompletedAt < end && v.VetId != null)
             .GroupBy(v => v.VetId!.Value).Select(g => new { g.Key, C = g.Count(), Pets = g.Select(x => x.PetId).Distinct().Count() }).ToListAsync();
         var revenue = await IssuedLines(from, end).Where(l => l.VetId != null)
             .GroupBy(l => new { Vet = l.VetId!.Value, l.Kind }).Select(g => new { g.Key.Vet, g.Key.Kind, Sum = g.Sum(x => x.Amount) }).ToListAsync();
-        var vets = await Db.Users.AsNoTracking().Where(u => u.IsVet).OrderBy(u => u.FullName).ToListAsync();
+        var vetsInScope = await Db.Users.AsNoTracking().Where(u => u.IsVet && (scope == null || u.AllBranches || u.Branches.Any(b => b.BranchId == scope))).Select(u => u.Id).ToListAsync();
+        var active = visits.Select(x => x.Key).Concat(revenue.Select(x => x.Vet)).Concat(vetsInScope).ToHashSet();
+        var vets = await Db.Users.AsNoTracking().Where(u => active.Contains(u.Id)).OrderBy(u => u.FullName).ToListAsync();
         var t = new ReportTable
         {
             Headers = new() { "Bác sĩ", "Số ca khám", "Số thú cưng", "Doanh thu dịch vụ", "Doanh thu thuốc / hàng", "Khác", "Tổng doanh thu" },
@@ -194,7 +215,7 @@ public class ReportsController : AppController
     private async Task<ReportTable> Stock(DateTime from, DateTime end)
     {
         var cost = Me.CanSeeCost;
-        var products = await Db.Products.AsNoTracking().OrderBy(p => p.Kind).ThenBy(p => p.Name).ToListAsync();
+        var products = await Db.Products.AsNoTracking().Include(p => p.Stocks).OrderBy(p => p.Kind).ThenBy(p => p.Name).ToListAsync();
         var after = await Db.StockMoves.Where(m => m.At >= from).GroupBy(m => m.ProductId).Select(g => new { g.Key, Q = g.Sum(x => x.Quantity) }).ToDictionaryAsync(x => x.Key, x => x.Q);
         var period = await Db.StockMoves.Where(m => m.At >= from && m.At < end)
             .GroupBy(m => m.ProductId)
@@ -219,12 +240,62 @@ public class ReportsController : AppController
             period.TryGetValue(p.Id, out var mv);
             if (opening == 0 && closing == 0 && mv == null) continue;
             var row = new List<object?> { p.Code, p.Name, p.Unit, opening, mv?.In ?? 0, mv?.Out ?? 0, closing };
-            if (cost) { row.Add(Math.Round(mv?.OutCost ?? 0, 0)); row.Add(Math.Round(Math.Max(0, p.Stock) * p.CostPrice, 0)); }
+            if (cost) { row.Add(Math.Round(mv?.OutCost ?? 0, 0)); row.Add(Math.Round(p.StockValue, 0)); }
             t.Rows.Add(row);
         }
         if (cost)
             t.Footer = new List<object?> { "", "Tổng cộng", "", null, null, null, null, Math.Round(period.Values.Sum(x => x.OutCost), 0),
-                Math.Round(products.Sum(p => Math.Max(0, p.Stock) * p.CostPrice), 0) };
+                Math.Round(products.Sum(p => p.StockValue), 0) };
+        return t;
+    }
+
+    /// <summary>So sánh các chi nhánh người dùng được xem</summary>
+    private async Task<ReportTable> Branches(DateTime from, DateTime end, List<Branch> branches)
+    {
+        Db.CurrentBranchId = null;
+        var ids = branches.Select(b => b.Id).ToList();
+        var visits = await Db.Visits.Where(v => ids.Contains(v.BranchId) && v.VisitAt >= from && v.VisitAt < end && v.Status != VisitStatus.Cancelled)
+            .GroupBy(v => v.BranchId).Select(g => new { g.Key, C = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.C);
+        var sales = await IssuedLines(from, end).Where(l => ids.Contains(l.Invoice!.BranchId))
+            .GroupBy(l => l.Invoice!.BranchId).Select(g => new { g.Key, S = g.Sum(x => x.Amount), C = g.Sum(x => x.CostAmount) }).ToDictionaryAsync(x => x.Key);
+        var paid = await Db.Payments.Where(p => ids.Contains(p.Invoice!.BranchId) && p.At >= from && p.At < end)
+            .GroupBy(p => p.Invoice!.BranchId).Select(g => new { g.Key, S = g.Sum(x => x.Amount) }).ToDictionaryAsync(x => x.Key, x => x.S);
+        var debts = await Db.Invoices.Where(i => ids.Contains(i.BranchId) && (i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Partial))
+            .GroupBy(i => i.BranchId).Select(g => new { g.Key, S = g.Sum(x => x.Total - x.Paid) }).ToDictionaryAsync(x => x.Key, x => x.S);
+        var boarding = await Db.Admissions.Where(a => ids.Contains(a.BranchId) && a.AdmitAt >= from && a.AdmitAt < end && a.Status != AdmissionStatus.Cancelled)
+            .GroupBy(a => a.BranchId).Select(g => new { g.Key, C = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.C);
+        var newOwners = await Db.Owners.Where(o => ids.Contains(o.BranchId) && o.CreatedAt >= from && o.CreatedAt < end)
+            .GroupBy(o => o.BranchId).Select(g => new { g.Key, C = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.C);
+        var stock = Me.CanSeeCost
+            ? await Db.ProductStocks.Where(s => ids.Contains(s.BranchId) && s.Quantity > 0).GroupBy(s => s.BranchId)
+                .Select(g => new { g.Key, S = g.Sum(x => x.Quantity * x.CostPrice) }).ToDictionaryAsync(x => x.Key, x => x.S)
+            : new Dictionary<int, decimal>();
+        var cost = Me.CanSeeCost;
+        var t = new ReportTable
+        {
+            Headers = cost
+                ? new() { "Chi nhánh", "Lượt khám", "Lượt nội trú", "Khách mới", "Doanh thu", "Lãi gộp", "Thực thu", "Công nợ hiện tại", "Giá trị tồn kho" }
+                : new() { "Chi nhánh", "Lượt khám", "Lượt nội trú", "Khách mới", "Doanh thu", "Thực thu", "Công nợ hiện tại" },
+            NumericColumns = cost ? new() { 1, 2, 3, 4, 5, 6, 7, 8 } : new() { 1, 2, 3, 4, 5, 6 },
+            Chart = new()
+        };
+        foreach (var b in branches)
+        {
+            var s = sales.GetValueOrDefault(b.Id);
+            var row = new List<object?> { b.Name, visits.GetValueOrDefault(b.Id), boarding.GetValueOrDefault(b.Id), newOwners.GetValueOrDefault(b.Id), s?.S ?? 0m };
+            if (cost) row.Add((s?.S ?? 0) - (s?.C ?? 0));
+            row.Add(paid.GetValueOrDefault(b.Id));
+            row.Add(debts.GetValueOrDefault(b.Id));
+            if (cost) row.Add(Math.Round(stock.GetValueOrDefault(b.Id), 0));
+            t.Rows.Add(row);
+            t.Chart.Add((b.Name, s?.S ?? 0));
+        }
+        var footer = new List<object?> { "Tổng cộng", visits.Values.Sum(), boarding.Values.Sum(), newOwners.Values.Sum(), sales.Values.Sum(x => x.S) };
+        if (cost) footer.Add(sales.Values.Sum(x => x.S - x.C));
+        footer.Add(paid.Values.Sum());
+        footer.Add(debts.Values.Sum());
+        if (cost) footer.Add(Math.Round(stock.Values.Sum(), 0));
+        t.Footer = footer;
         return t;
     }
 

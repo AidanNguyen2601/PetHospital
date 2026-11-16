@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using PetHospital.Web.Infrastructure;
 using PetHospital.Web.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -12,6 +13,48 @@ public class PetDbContext : DbContext
     private bool _writingAudit;
 
     public PetDbContext(DbContextOptions<PetDbContext> options, IHttpContextAccessor http) : base(options) => _http = http;
+
+    // ================= Chi nhánh đang làm việc =================
+
+    private int? _branchId;
+    private bool _branchResolved;
+    private string? _branchCode;
+
+    /// <summary>
+    /// Chi nhánh dùng để lọc dữ liệu (bộ lọc toàn cục). Mặc định lấy theo người dùng đăng nhập;
+    /// null = không lọc (khởi tạo dữ liệu, báo cáo toàn chuỗi).
+    /// </summary>
+    public int? CurrentBranchId
+    {
+        get
+        {
+            if (!_branchResolved) { _branchId = BranchScope.Resolve(_http.HttpContext); _branchResolved = true; }
+            return _branchId;
+        }
+        set { _branchId = value; _branchResolved = true; _branchCode = null; }
+    }
+
+    /// <summary>Chi nhánh gán cho bản ghi mới khi không lọc theo chi nhánh (khởi tạo dữ liệu mẫu, mô phỏng từ dòng lệnh)</summary>
+    public int? DefaultBranchId { get; set; }
+
+    /// <summary>Khách hàng dùng chung toàn chuỗi (đọc từ cài đặt)</summary>
+    public bool ShareCustomers => ChainSettings.ShareCustomers;
+
+    /// <summary>Chi nhánh ghi dữ liệu mới</summary>
+    public int WriteBranchId => CurrentBranchId is > 0 ? CurrentBranchId.Value
+        : DefaultBranchId ?? throw new InvalidOperationException("Chưa chọn chi nhánh làm việc.");
+
+    /// <summary>Mã chi nhánh ghi dữ liệu (tiền tố số chứng từ)</summary>
+    public async Task<string> WriteBranchCodeAsync()
+    {
+        if (_branchCode != null) return _branchCode;
+        var id = WriteBranchId;
+        return _branchCode = await Branches.AsNoTracking().Where(b => b.Id == id).Select(b => b.Code).FirstAsync();
+    }
+
+    // ----- Chi nhánh -----
+    public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<UserBranch> UserBranches => Set<UserBranch>();
 
     // ----- Hệ thống -----
     public DbSet<AppUser> Users => Set<AppUser>();
@@ -32,6 +75,9 @@ public class PetDbContext : DbContext
     public DbSet<StockReceipt> StockReceipts => Set<StockReceipt>();
     public DbSet<StockReceiptLine> StockReceiptLines => Set<StockReceiptLine>();
     public DbSet<StockMove> StockMoves => Set<StockMove>();
+    public DbSet<ProductStock> ProductStocks => Set<ProductStock>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
 
     // ----- Khám chữa bệnh -----
     public DbSet<Appointment> Appointments => Set<Appointment>();
@@ -87,12 +133,60 @@ public class PetDbContext : DbContext
         b.Entity<Visit>().HasIndex(x => new { x.Status, x.VisitAt });
         b.Entity<Vaccination>().HasIndex(x => new { x.PetId, x.Date });
         b.Entity<Vaccination>().HasIndex(x => x.NextDueDate);
-        b.Entity<Cage>().HasIndex(x => x.Code).IsUnique();
+        b.Entity<Cage>().HasIndex(x => new { x.BranchId, x.Code }).IsUnique();
         b.Entity<Admission>().HasIndex(x => x.Code).IsUnique();
         b.Entity<Admission>().HasIndex(x => x.Status);
         b.Entity<Invoice>().HasIndex(x => x.Code).IsUnique();
         b.Entity<Invoice>().HasIndex(x => new { x.Status, x.Date });
         b.Entity<Payment>().HasIndex(x => x.At);
+
+        // ----- Chi nhánh -----
+        b.Entity<Branch>().HasIndex(x => x.Code).IsUnique();
+        b.Entity<UserBranch>().HasIndex(x => new { x.UserId, x.BranchId }).IsUnique();
+        b.Entity<AppUser>().HasMany(x => x.Branches).WithOne(x => x.User).HasForeignKey(x => x.UserId);
+        b.Entity<UserBranch>().HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<ProductStock>().HasIndex(x => new { x.BranchId, x.ProductId }).IsUnique();
+        b.Entity<Product>().HasMany(x => x.Stocks).WithOne(x => x.Product).HasForeignKey(x => x.ProductId);
+        b.Entity<StockTransfer>().HasIndex(x => x.Code).IsUnique();
+        b.Entity<StockTransfer>().HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<StockTransfer>().HasOne(x => x.ToBranch).WithMany().HasForeignKey(x => x.ToBranchId);
+        b.Entity<StockTransfer>().HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById);
+        b.Entity<StockTransfer>().HasMany(x => x.Lines).WithOne(x => x.Transfer).HasForeignKey(x => x.TransferId);
+        b.Entity<StockTransferLine>().HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId);
+        b.Entity<Owner>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<Appointment>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<Visit>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<Vaccination>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<Cage>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<Admission>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<Invoice>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<StockReceipt>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<ProductBatch>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<StockMove>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        b.Entity<ProductStock>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+
+        // ----- Bộ lọc dữ liệu theo chi nhánh đang làm việc (CurrentBranchId = null: không lọc) -----
+        // Khách hàng: dùng chung toàn chuỗi hoặc riêng chi nhánh tạo (theo cài đặt); thú cưng theo chủ nuôi.
+        b.Entity<Owner>().HasQueryFilter(x => CurrentBranchId == null || ShareCustomers || x.BranchId == CurrentBranchId);
+        b.Entity<Pet>().HasQueryFilter(x => CurrentBranchId == null || ShareCustomers || x.Owner!.BranchId == CurrentBranchId);
+        b.Entity<Appointment>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<Visit>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<VisitService>().HasQueryFilter(x => CurrentBranchId == null || x.Visit!.BranchId == CurrentBranchId);
+        b.Entity<VisitMedicine>().HasQueryFilter(x => CurrentBranchId == null || x.Visit!.BranchId == CurrentBranchId);
+        b.Entity<Vaccination>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<Cage>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<Admission>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<AdmissionNote>().HasQueryFilter(x => CurrentBranchId == null || x.Admission!.BranchId == CurrentBranchId);
+        b.Entity<Invoice>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<InvoiceLine>().HasQueryFilter(x => CurrentBranchId == null || x.Invoice!.BranchId == CurrentBranchId);
+        b.Entity<Payment>().HasQueryFilter(x => CurrentBranchId == null || x.Invoice!.BranchId == CurrentBranchId);
+        b.Entity<StockReceipt>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<StockReceiptLine>().HasQueryFilter(x => CurrentBranchId == null || x.Receipt!.BranchId == CurrentBranchId);
+        b.Entity<ProductBatch>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<StockMove>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<ProductStock>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId);
+        b.Entity<StockTransfer>().HasQueryFilter(x => CurrentBranchId == null || x.BranchId == CurrentBranchId || x.ToBranchId == CurrentBranchId);
+        b.Entity<StockTransferLine>().HasQueryFilter(x => CurrentBranchId == null || x.Transfer!.BranchId == CurrentBranchId || x.Transfer.ToBranchId == CurrentBranchId);
 
         // Quan hệ khai báo tường minh (tránh EF tự ghép cặp sai)
         b.Entity<Owner>().HasMany(x => x.Pets).WithOne(x => x.Owner).HasForeignKey(x => x.OwnerId);
@@ -142,7 +236,7 @@ public class PetDbContext : DbContext
         {
             (typeof(StockReceiptLine), typeof(StockReceipt)), (typeof(VisitService), typeof(Visit)),
             (typeof(VisitMedicine), typeof(Visit)), (typeof(AdmissionNote), typeof(Admission)),
-            (typeof(InvoiceLine), typeof(Invoice))
+            (typeof(InvoiceLine), typeof(Invoice)), (typeof(StockTransferLine), typeof(StockTransfer)), (typeof(UserBranch), typeof(AppUser))
         };
         foreach (var fk in b.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
             fk.DeleteBehavior = cascadeAllowed.Contains((fk.DeclaringEntityType.ClrType, fk.PrincipalEntityType.ClrType))
@@ -163,6 +257,7 @@ public class PetDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        AssignBranch();
         // Chỉ ghi nhật ký cho thao tác của người dùng (bỏ qua khởi tạo dữ liệu nền)
         if (_writingAudit || SuppressAudit || _http.HttpContext?.User.Identity?.IsAuthenticated != true)
             return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -186,6 +281,13 @@ public class PetDbContext : DbContext
         try { await base.SaveChangesAsync(true, cancellationToken); }
         finally { _writingAudit = false; }
         return result;
+    }
+
+    /// <summary>Bản ghi mới thuộc chi nhánh đang làm việc (nếu chưa gán)</summary>
+    private void AssignBranch()
+    {
+        foreach (var e in ChangeTracker.Entries<IBranchScoped>())
+            if (e.State == EntityState.Added && e.Entity.BranchId == 0) e.Entity.BranchId = WriteBranchId;
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new()

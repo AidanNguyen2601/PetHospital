@@ -79,7 +79,8 @@ public class AppointmentsController : AppController
         if (m.VetId.HasValue && ModelState.IsValid)
         {
             var end = m.StartAt.AddMinutes(m.DurationMinutes);
-            var clash = await Db.Appointments.Include(a => a.Pet).Where(a => a.Id != m.Id && a.VetId == m.VetId
+            // Bác sĩ có thể làm ở nhiều chi nhánh: kiểm tra trùng lịch toàn chuỗi
+            var clash = await Db.Appointments.IgnoreQueryFilters().Include(a => a.Pet).Where(a => a.Id != m.Id && a.VetId == m.VetId
                     && (a.Status == AppointmentStatus.Booked || a.Status == AppointmentStatus.Confirmed)
                     && a.StartAt < end && a.StartAt.AddMinutes(a.DurationMinutes) > m.StartAt)
                 .Select(a => new { a.Code, a.StartAt, Pet = a.Pet != null ? a.Pet.Name : null }).FirstOrDefaultAsync();
@@ -98,7 +99,7 @@ public class AppointmentsController : AppController
         Appointment a;
         if (m.Id == 0)
         {
-            a = new Appointment { Code = await Codes.NextAsync(Db.Appointments.Select(x => x.Code), "LH", m.StartAt), CreatedById = CurrentUserId };
+            a = new Appointment { Code = await Codes.NextAsync(Db, Db.Appointments.Select(x => x.Code), "LH", m.StartAt), CreatedById = CurrentUserId };
             Db.Appointments.Add(a);
         }
         else
@@ -139,7 +140,7 @@ public class AppointmentsController : AppController
         var pet = await Db.Pets.AsNoTracking().FirstAsync(p => p.Id == a.PetId);
         var v = new Visit
         {
-            Code = await Codes.NextAsync(Db.Visits.Select(x => x.Code), "PK"), PetId = pet.Id, OwnerId = pet.OwnerId, VetId = a.VetId, AppointmentId = a.Id,
+            Code = await Codes.NextAsync(Db, Db.Visits.Select(x => x.Code), "PK"), PetId = pet.Id, OwnerId = pet.OwnerId, VetId = a.VetId, AppointmentId = a.Id,
             VisitAt = DateTime.Now, Status = VisitStatus.Waiting, Reason = a.Reason, WeightKg = pet.WeightKg, CreatedById = CurrentUserId
         };
         if (a.ServiceItem != null) v.Services.Add(new VisitService { ServiceItemId = a.ServiceItem.Id, Quantity = 1, UnitPrice = a.ServiceItem.Price });

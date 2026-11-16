@@ -36,14 +36,15 @@ public class PetsController : AppController
     {
         var p = await Db.Pets.AsNoTracking().Include(x => x.Owner).Include(x => x.Species).Include(x => x.Breed).FirstOrDefaultAsync(x => x.Id == id);
         if (p == null) return NotFound();
-        ViewBag.Visits = await Db.Visits.AsNoTracking().Include(v => v.Vet).Include(v => v.Medicines).ThenInclude(m => m.Product)
+        ViewBag.Visits = await Db.Visits.IgnoreQueryFilters().AsNoTracking().Include(v => v.Vet).Include(v => v.Medicines).ThenInclude(m => m.Product)
             .Include(v => v.Services).ThenInclude(s => s.ServiceItem)
             .Where(v => v.PetId == id).OrderByDescending(v => v.VisitAt).ToListAsync();
-        ViewBag.Vaccinations = await Db.Vaccinations.AsNoTracking().Include(v => v.Vet).Where(v => v.PetId == id).OrderByDescending(v => v.Date).ToListAsync();
-        ViewBag.Admissions = await Db.Admissions.AsNoTracking().Include(a => a.Cage).Where(a => a.PetId == id).OrderByDescending(a => a.AdmitAt).ToListAsync();
+        ViewBag.Vaccinations = await Db.Vaccinations.IgnoreQueryFilters().AsNoTracking().Include(v => v.Vet).Where(v => v.PetId == id).OrderByDescending(v => v.Date).ToListAsync();
+        ViewBag.Admissions = await Db.Admissions.IgnoreQueryFilters().AsNoTracking().Include(a => a.Cage).Where(a => a.PetId == id).OrderByDescending(a => a.AdmitAt).ToListAsync();
         ViewBag.Appointments = await Db.Appointments.AsNoTracking().Include(a => a.Vet).Include(a => a.ServiceItem)
             .Where(a => a.PetId == id && a.StartAt >= DateTime.Today && (a.Status == AppointmentStatus.Booked || a.Status == AppointmentStatus.Confirmed))
             .OrderBy(a => a.StartAt).ToListAsync();
+        ViewBag.BranchNames = await Svc<Lookups>().BranchNamesAsync();
         return View(p);
     }
 
@@ -52,10 +53,10 @@ public class PetsController : AppController
     {
         var p = await Db.Pets.AsNoTracking().Include(x => x.Owner).Include(x => x.Species).Include(x => x.Breed).FirstOrDefaultAsync(x => x.Id == id);
         if (p == null) return NotFound();
-        ViewBag.Visits = await Db.Visits.AsNoTracking().Include(v => v.Vet).Include(v => v.Medicines).ThenInclude(m => m.Product)
+        ViewBag.Visits = await Db.Visits.IgnoreQueryFilters().AsNoTracking().Include(v => v.Vet).Include(v => v.Medicines).ThenInclude(m => m.Product)
             .Include(v => v.Services).ThenInclude(s => s.ServiceItem)
             .Where(v => v.PetId == id && v.Status == VisitStatus.Completed).OrderByDescending(v => v.VisitAt).ToListAsync();
-        ViewBag.Vaccinations = await Db.Vaccinations.AsNoTracking().Where(v => v.PetId == id).OrderByDescending(v => v.Date).ToListAsync();
+        ViewBag.Vaccinations = await Db.Vaccinations.IgnoreQueryFilters().AsNoTracking().Where(v => v.PetId == id).OrderByDescending(v => v.Date).ToListAsync();
         ViewData["Layout"] = "_PrintLayout";
         return View(p);
     }
@@ -123,8 +124,8 @@ public class PetsController : AppController
     {
         var p = await Db.Pets.FindAsync(id);
         if (p == null) return NotFound();
-        var used = await Db.Visits.AnyAsync(v => v.PetId == id) || await Db.Vaccinations.AnyAsync(v => v.PetId == id)
-            || await Db.Admissions.AnyAsync(a => a.PetId == id) || await Db.Invoices.AnyAsync(i => i.PetId == id) || await Db.Appointments.AnyAsync(a => a.PetId == id);
+        var used = await Db.Visits.IgnoreQueryFilters().AnyAsync(v => v.PetId == id) || await Db.Vaccinations.IgnoreQueryFilters().AnyAsync(v => v.PetId == id)
+            || await Db.Admissions.IgnoreQueryFilters().AnyAsync(a => a.PetId == id) || await Db.Invoices.IgnoreQueryFilters().AnyAsync(i => i.PetId == id) || await Db.Appointments.IgnoreQueryFilters().AnyAsync(a => a.PetId == id);
         if (used) return BackWithError("Thú cưng đã có bệnh án / hóa đơn nên không xóa được. Có thể đánh dấu \"Đã mất\" nếu cần.", nameof(Details), new { id });
         var ownerId = p.OwnerId;
         Db.Pets.Remove(p);

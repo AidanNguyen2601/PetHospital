@@ -1,11 +1,106 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PetHospital.Web.Models;
 
-/// <summary>Khách hàng – chủ nuôi</summary>
-public class Owner
+/// <summary>Dữ liệu thuộc về một chi nhánh (tự lọc theo chi nhánh đang làm việc, tự gán khi tạo mới)</summary>
+public interface IBranchScoped
+{
+    int BranchId { get; set; }
+}
+
+/// <summary>Chi nhánh / cơ sở phòng khám trong chuỗi</summary>
+public class Branch
 {
     public int Id { get; set; }
+
+    [Required(ErrorMessage = "Nhập mã chi nhánh"), StringLength(6, ErrorMessage = "Mã tối đa 6 ký tự"),
+     RegularExpression("^[A-Za-z0-9]+$", ErrorMessage = "Mã chỉ gồm chữ không dấu và số"), Display(Name = "Mã chi nhánh")]
+    public string Code { get; set; } = "";
+
+    [Required(ErrorMessage = "Nhập tên chi nhánh"), StringLength(150), Display(Name = "Tên chi nhánh")]
+    public string Name { get; set; } = "";
+
+    [StringLength(300), Display(Name = "Địa chỉ")]
+    public string? Address { get; set; }
+
+    [StringLength(30), Display(Name = "Điện thoại")]
+    public string? Phone { get; set; }
+
+    [StringLength(150), EmailAddress(ErrorMessage = "Email không hợp lệ"), Display(Name = "Email")]
+    public string? Email { get; set; }
+
+    [Display(Name = "Thứ tự")]
+    public int SortOrder { get; set; }
+
+    [Display(Name = "Đang hoạt động")]
+    public bool IsActive { get; set; } = true;
+
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>Tồn kho một mặt hàng tại một chi nhánh</summary>
+public class ProductStock : IBranchScoped
+{
+    public int Id { get; set; }
+    public int BranchId { get; set; }
+    public int ProductId { get; set; }
+    public Product? Product { get; set; }
+    public decimal Quantity { get; set; }
+    /// <summary>Giá vốn bình quân tại chi nhánh</summary>
+    public decimal CostPrice { get; set; }
+}
+
+/// <summary>Phiếu chuyển kho giữa hai chi nhánh (BranchId = chi nhánh xuất)</summary>
+public class StockTransfer : IBranchScoped
+{
+    public int Id { get; set; }
+
+    [Display(Name = "Chi nhánh xuất")]
+    public int BranchId { get; set; }
+    public Branch? Branch { get; set; }
+
+    [Display(Name = "Chi nhánh nhận")]
+    public int ToBranchId { get; set; }
+    public Branch? ToBranch { get; set; }
+
+    [StringLength(20), Display(Name = "Số phiếu")]
+    public string Code { get; set; } = "";
+
+    [DataType(DataType.Date), Display(Name = "Ngày chuyển")]
+    public DateTime Date { get; set; } = DateTime.Today;
+
+    [StringLength(1000), Display(Name = "Ghi chú")]
+    public string? Note { get; set; }
+
+    public DocState State { get; set; }
+    /// <summary>Tổng giá vốn hàng chuyển</summary>
+    public decimal Total { get; set; }
+
+    public int CreatedById { get; set; }
+    public AppUser? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? PostedAt { get; set; }
+
+    public List<StockTransferLine> Lines { get; set; } = new();
+}
+
+public class StockTransferLine
+{
+    public int Id { get; set; }
+    public int TransferId { get; set; }
+    public StockTransfer? Transfer { get; set; }
+    public int ProductId { get; set; }
+    public Product? Product { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal CostAmount { get; set; }
+}
+
+/// <summary>Khách hàng – chủ nuôi</summary>
+public class Owner : IBranchScoped
+{
+    public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [StringLength(20), Display(Name = "Mã khách hàng")]
     public string Code { get; set; } = "";
@@ -175,15 +270,35 @@ public class Product
     [Range(0, 1_000_000_000), Display(Name = "Giá bán")]
     public decimal SalePrice { get; set; }
 
+    /// <summary>Giá vốn tham chiếu toàn chuỗi (giá vốn bình quân thực tế lưu theo từng chi nhánh ở ProductStock)</summary>
     [Range(0, 1_000_000_000), Display(Name = "Giá vốn bình quân")]
     public decimal CostPrice { get; set; }
 
     [Range(0, 1_000_000), Display(Name = "Tồn tối thiểu")]
     public decimal MinStock { get; set; }
 
-    /// <summary>Tồn kho hiện tại (cập nhật theo sổ kho)</summary>
-    [Display(Name = "Tồn kho")]
-    public decimal Stock { get; set; }
+    /// <summary>Tồn kho theo chi nhánh (tự lọc theo chi nhánh đang làm việc; báo cáo toàn chuỗi = tổng các chi nhánh)</summary>
+    public List<ProductStock> Stocks { get; set; } = new();
+
+    /// <summary>Tồn kho của chi nhánh đang xem (cần Include(p =&gt; p.Stocks))</summary>
+    [NotMapped, Display(Name = "Tồn kho")]
+    public decimal Stock => Stocks.Sum(s => s.Quantity);
+
+    /// <summary>Giá vốn bình quân tại chi nhánh đang xem (chưa có tồn thì lấy giá tham chiếu)</summary>
+    [NotMapped]
+    public decimal AvgCost
+    {
+        get
+        {
+            var qty = Stocks.Where(s => s.Quantity > 0).Sum(s => s.Quantity);
+            if (qty > 0) return Math.Round(Stocks.Where(s => s.Quantity > 0).Sum(s => s.Quantity * s.CostPrice) / qty, 2);
+            return Stocks.Count == 1 && Stocks[0].CostPrice > 0 ? Stocks[0].CostPrice : CostPrice;
+        }
+    }
+
+    /// <summary>Giá trị tồn theo giá vốn</summary>
+    [NotMapped]
+    public decimal StockValue => Stocks.Sum(s => Math.Max(0, s.Quantity) * s.CostPrice);
 
     [Display(Name = "Theo dõi lô / hạn dùng")]
     public bool TrackExpiry { get; set; } = true;
@@ -199,9 +314,10 @@ public class Product
 }
 
 /// <summary>Lô hàng (số lô, hạn dùng, số lượng còn) – xuất kho theo hạn gần nhất trước (FEFO)</summary>
-public class ProductBatch
+public class ProductBatch : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
     public int ProductId { get; set; }
     public Product? Product { get; set; }
     [StringLength(50)] public string? LotNo { get; set; }
@@ -212,9 +328,10 @@ public class ProductBatch
 }
 
 /// <summary>Phiếu nhập kho</summary>
-public class StockReceipt
+public class StockReceipt : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [StringLength(20), Display(Name = "Số phiếu")]
     public string Code { get; set; } = "";
@@ -257,9 +374,10 @@ public class StockReceiptLine
 }
 
 /// <summary>Sổ kho: mọi biến động nhập / xuất / điều chỉnh</summary>
-public class StockMove
+public class StockMove : IBranchScoped
 {
     public long Id { get; set; }
+    public int BranchId { get; set; }
     public DateTime At { get; set; } = DateTime.Now;
     public int ProductId { get; set; }
     public Product? Product { get; set; }
@@ -280,9 +398,10 @@ public class StockMove
 }
 
 /// <summary>Lịch hẹn</summary>
-public class Appointment
+public class Appointment : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [StringLength(20), Display(Name = "Mã lịch hẹn")]
     public string Code { get; set; } = "";
@@ -327,9 +446,10 @@ public class Appointment
 }
 
 /// <summary>Lượt khám / bệnh án</summary>
-public class Visit
+public class Visit : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [StringLength(20), Display(Name = "Mã phiếu khám")]
     public string Code { get; set; } = "";
@@ -427,9 +547,10 @@ public class VisitMedicine
 }
 
 /// <summary>Sổ tiêm phòng</summary>
-public class Vaccination
+public class Vaccination : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [Display(Name = "Thú cưng")]
     public int PetId { get; set; }
@@ -471,9 +592,10 @@ public class Vaccination
 }
 
 /// <summary>Chuồng / phòng lưu trú</summary>
-public class Cage
+public class Cage : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
     [Required(ErrorMessage = "Nhập mã chuồng"), StringLength(20), Display(Name = "Mã chuồng")]
     public string Code { get; set; } = "";
     [Required(ErrorMessage = "Nhập tên"), StringLength(100), Display(Name = "Tên / vị trí")]
@@ -489,9 +611,10 @@ public class Cage
 }
 
 /// <summary>Nội trú / lưu chuồng</summary>
-public class Admission
+public class Admission : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [StringLength(20), Display(Name = "Mã phiếu")]
     public string Code { get; set; } = "";
@@ -572,9 +695,10 @@ public class AdmissionNote
 }
 
 /// <summary>Hóa đơn bán hàng / dịch vụ</summary>
-public class Invoice
+public class Invoice : IBranchScoped
 {
     public int Id { get; set; }
+    public int BranchId { get; set; }
 
     [StringLength(20), Display(Name = "Số hóa đơn")]
     public string Code { get; set; } = "";
