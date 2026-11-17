@@ -41,6 +41,10 @@ public class AppUser
     [StringLength(20)]
     public string? Language { get; set; }
 
+    /// <summary>Giao diện riêng (JSON: phông, cỡ chữ, màu, vị trí menu); null = dùng mặc định hệ thống</summary>
+    [StringLength(400)]
+    public string? UiTheme { get; set; }
+
     /// <summary>Làm việc ở mọi chi nhánh (quản lý chuỗi). Quản trị hệ thống luôn được xem mọi chi nhánh.</summary>
     public bool AllBranches { get; set; }
 

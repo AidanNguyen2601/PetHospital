@@ -21,6 +21,15 @@
 - **Theo vùng miền**: *Thêm ngôn ngữ / vùng miền* → mã (VD `vi-Nam`, `en-GB`), tên hiển thị, **Kế thừa từ** ngôn ngữ gốc → chỉ sửa những câu khác biệt; câu không sửa lấy từ ngôn ngữ gốc. Có thể đặt định dạng số / ngày riêng.
 - **Đặt mặc định**: ngôn ngữ cho người dùng chưa chọn.
 
+## Giao diện (phông chữ, màu chủ đạo, vị trí menu)
+- **Giao diện của tôi**: menu tài khoản › *Giao diện*. Tắt *Dùng giao diện mặc định của hệ thống* rồi chọn:
+  - **Màu chủ đạo**: 11 màu có sẵn hoặc màu tùy chọn (ô chọn màu). Nút, liên kết, biểu tượng, biểu đồ, mục menu đang chọn đổi theo; màu sáng / đậm phụ trợ tự tính.
+  - **Phông chữ** (Segoe UI, Arial, Tahoma, Roboto, Inter, Be Vietnam Pro, Nunito, Open Sans, Montserrat, Noto Sans, Times New Roman) và **cỡ chữ** 13–16px. Phông nhãn *web* tải từ Google Fonts – máy không có Internet sẽ dùng phông có sẵn.
+  - **Vị trí menu**: trái, phải, trên, dưới. Menu trên / dưới hiển thị theo nhóm, rê chuột hoặc bấm vào nhóm để mở. Điện thoại / màn hình hẹp: menu luôn trượt ra bằng nút ☰.
+  - **Màu menu**: tối, sáng hoặc theo màu chủ đạo.
+  - Thay đổi được xem trước ngay; bấm **Lưu** để áp dụng. Giao diện lưu theo tài khoản (dùng trên mọi máy). Bật lại *Dùng giao diện mặc định…* + **Lưu** để quay về mặc định.
+- **Mặc định toàn hệ thống** (*Quản trị › Giao diện*, quyền *Thông tin phòng khám, nhật ký hệ thống*): áp dụng cho trang đăng nhập và mọi người dùng chưa chọn giao diện riêng.
+
 ## Lễ tân
 1. **Khách gọi đặt lịch**: *Lịch hẹn › Đặt lịch hẹn* → gõ tên / SĐT khách (chưa có thì *+ Khách hàng mới*) → chọn thú cưng, dịch vụ, bác sĩ, giờ. Hệ thống cảnh báo nếu bác sĩ đã có lịch trùng giờ.
 2. **Khách đến theo lịch**: *Lịch hẹn* → **Khách đến** → phiếu khám vào hàng chờ.

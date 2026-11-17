@@ -68,6 +68,8 @@ public static class SchemaUpgrade
 
         // Ngôn ngữ giao diện của người dùng
         if (!await ColumnExistsAsync(db, "Users", "Language")) await Exec(db, "ALTER TABLE [Users] ADD [Language] nvarchar(20) NULL");
+        // Giao diện riêng của người dùng
+        if (!await ColumnExistsAsync(db, "Users", "UiTheme")) await Exec(db, "ALTER TABLE [Users] ADD [UiTheme] nvarchar(400) NULL");
 
         // 4. Người dùng: quyền toàn chuỗi + gán chi nhánh mặc định
         if (!await ColumnExistsAsync(db, "Users", "AllBranches"))

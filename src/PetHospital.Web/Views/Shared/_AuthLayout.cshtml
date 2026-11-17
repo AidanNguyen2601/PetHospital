@@ -1,9 +1,18 @@
+@inject PetHospital.Web.Infrastructure.ThemeService Theme
+@{
+    var ui = await Theme.SystemAsync();
+}
 <!DOCTYPE html>
-<html lang="@(LangScope.Current?.HtmlLang ?? "vi")">
+<html lang="@(LangScope.Current?.HtmlLang ?? "vi")" data-menu-style="@ui.MenuStyle" style="@ui.CssVars">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@Tx(ViewData["Title"] as string) - PetCare</title>
+    @if (ui.GoogleFontUrl is { } fontUrl)
+    {
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="stylesheet" href="@fontUrl" />
+    }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>

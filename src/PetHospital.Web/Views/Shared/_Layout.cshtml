@@ -1,6 +1,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject PetHospital.Web.Data.PetDbContext Db
 @inject PetHospital.Web.Infrastructure.Localizer Loc
+@inject PetHospital.Web.Infrastructure.ThemeService Theme
 @{
     var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
     var act = ViewContext.RouteData.Values["action"]?.ToString();
@@ -12,17 +13,24 @@
     var myBranches = (await Db.Branches.AsNoTracking().Where(b => b.IsActive).OrderBy(b => b.SortOrder).ThenBy(b => b.Name).ToListAsync()).Where(b => Me.CanAccessBranch(b.Id)).ToList();
     var curBranch = await Db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == Me.BranchId);
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var ui = await Theme.CurrentAsync();
 }
 <!DOCTYPE html>
-<html lang="@(LangScope.Current?.HtmlLang ?? "vi")">
+<html lang="@(LangScope.Current?.HtmlLang ?? "vi")" data-menu="@ui.Menu" data-menu-style="@ui.MenuStyle" style="@ui.CssVars">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@Tx(ViewData["Title"] as string) - PetCare</title>
+    @if (ui.GoogleFontUrl is { } fontUrl)
+    {
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="stylesheet" href="@fontUrl" />
+    }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <script>
-        try { if (localStorage.getItem('pet.nav.mini') === '1') document.documentElement.classList.add('sidebar-mini'); } catch (e) { }
+        // Menu rút gọn (chỉ icon) chỉ dùng cho menu dọc trái / phải
+        try { var m = document.documentElement.getAttribute('data-menu'); if ((m === 'left' || m === 'right') && localStorage.getItem('pet.nav.mini') === '1') document.documentElement.classList.add('sidebar-mini'); } catch (e) { }
     </script>
 </head>
 <body data-page="@ctrl.@act">
@@ -135,7 +143,8 @@
                         {
                             <a class="@Active("Branches")" asp-controller="Branches" asp-action="Index">@Icon("building")<span>Chi nhánh</span></a>
                             <a class="@Active("Languages")" asp-controller="Languages" asp-action="Index">@Icon("globe")<span>Ngôn ngữ &amp; bản dịch</span></a>
-                            <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin chuỗi                             <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin phòng khám</span></a> tham số</span></a>
+                            <a class="@Active("Settings")" asp-controller="Settings" asp-action="Index">@Icon("settings")<span>Thông tin chuỗi &amp; tham số</span></a>
+                            <a class="@(ctrl == "Appearance" && Context.Request.Query["scope"] == "system" ? "active" : "")" asp-controller="Appearance" asp-action="Index" asp-route-scope="system">@Icon("palette")<span>Giao diện</span></a>
                             <a class="@Active("Audit")" asp-controller="Audit" asp-action="Index">@Icon("history")<span>Nhật ký hệ thống</span></a>
                             <a class="@Active("DemoData")" asp-controller="DemoData" asp-action="Index">@Icon("flow")<span>Dữ liệu mô phỏng</span></a>
                         }
@@ -218,6 +227,7 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><span class="dropdown-item-text small text-muted">@roleNames</span></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@Icon("key")Đổi mật khẩu</a></li>
+                        <li><a class="dropdown-item" asp-controller="Appearance" asp-action="Index">@Icon("palette")Giao diện</a></li>
                         @if (Loc.ActiveLanguages.Count() > 1)
                         {
                             <li><hr class="dropdown-divider" /></li>

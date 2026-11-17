@@ -1,0 +1,156 @@
+@model UiTheme
+@{
+    ViewData["Title"] = "Giao diện"; ViewData["Icon"] = "palette";
+    var scope = (string)ViewBag.Scope;
+    var isSystem = scope == "system";
+    bool useDefault = ViewBag.UseDefault;
+    UiTheme sys = ViewBag.SystemTheme;
+    var preset = UiTheme.Accents.Any(a => a.Hex == Model.Accent);
+    var allFonts = UiTheme.GoogleUrl(UiTheme.Fonts.Select(f => f.Google).ToArray());
+}
+@if (allFonts != null)
+{
+    <link rel="stylesheet" href="@allFonts" />  @* xem trước mọi phông web trên trang này *@
+}
+@if (ViewBag.CanSystem)
+{
+    <ul class="nav nav-pills mb-3">
+        <li class="nav-item"><a class="nav-link @(isSystem ? "" : "active")" asp-action="Index">@Icon("user")Giao diện của tôi</a></li>
+        <li class="nav-item"><a class="nav-link @(isSystem ? "active" : "")" asp-action="Index" asp-route-scope="system">@Icon("building")Mặc định toàn hệ thống</a></li>
+    </ul>
+}
+<form asp-action="Save" method="post" id="themeForm" class="theme-form" data-system="@sys.ToJson()">
+    <input type="hidden" name="scope" value="@scope" />
+    <div class="card mb-3">
+        <div class="card-body">
+            @if (isSystem)
+            {
+                <div class="small text-muted">Giao diện mặc định áp dụng cho trang đăng nhập và mọi người dùng chưa chọn giao diện riêng. Thay đổi được xem trước ngay trên trang này và chỉ áp dụng sau khi lưu.</div>
+            }
+            else
+            {
+                <div class="form-check form-switch mb-1">
+                    <input class="form-check-input" type="checkbox" name="useDefault" value="true" id="useDefault" checked="@useDefault" />
+                    <label class="form-check-label fw-semibold" for="useDefault">Dùng giao diện mặc định của hệ thống</label>
+                </div>
+                <div class="small text-muted">Bỏ chọn để tự chỉnh giao diện riêng – chỉ áp dụng cho tài khoản của bạn, trên mọi máy. Thay đổi được xem trước ngay trên trang này và chỉ áp dụng sau khi lưu.</div>
+            }
+        </div>
+    </div>
+
+    <fieldset id="themeFields" disabled="@(!isSystem && useDefault)">
+        <div class="card mb-3">
+            <div class="card-header">@Icon("palette")Màu chủ đạo</div>
+            <div class="card-body">
+                <div class="swatches">
+                    @foreach (var (hex, name) in UiTheme.Accents)
+                    {
+                        <label class="swatch" title="@name"><input type="radio" name="Accent" value="@hex" checked="@(Model.Accent == hex)" aria-label="@name" /><span style="background:@hex"></span></label>
+                    }
+                    <label class="swatch swatch-custom" title="Màu tùy chọn"><input type="radio" name="Accent" value="custom" checked="@(!preset)" aria-label="Màu tùy chọn" /><span></span></label>
+                    <input type="color" name="accentCustom" value="@Model.Accent" class="form-control form-control-color" title="Chọn màu khác" />
+                </div>
+                <div class="small text-muted mt-2">Áp dụng cho nút bấm, liên kết, biểu tượng, biểu đồ, mục menu đang chọn… Màu sáng / đậm phụ trợ được tự tính theo màu chủ đạo.</div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">@Icon("edit")Phông chữ</div>
+            <div class="card-body">
+                <div class="opt-grid">
+                    @foreach (var f in UiTheme.Fonts)
+                    {
+                        <label class="opt-card">
+                            <input type="radio" name="Font" value="@f.Code" checked="@(Model.Font == f.Code)" data-stack="@f.Stack" />
+                            <span class="font-sample" style="font-family:@f.Stack">Aa Thú y 123</span>
+                            <span class="opt-name">@f.Name @if (f.Google != null) { <span class="badge bg-light text-muted border" title="Tải từ Google Fonts">web</span> }</span>
+                        </label>
+                    }
+                </div>
+                <div class="small text-muted mt-2">Phông có nhãn “web” tải từ Google Fonts (cần Internet); khi mất mạng trình duyệt tự dùng phông có sẵn trong máy.</div>
+
+                <label class="form-label mt-3 d-block">Cỡ chữ</label>
+                <div class="btn-group" role="group" aria-label="Cỡ chữ">
+                    @foreach (var s in UiTheme.FontSizes)
+                    {
+                        <input type="radio" class="btn-check" name="FontSize" value="@s" id="fs@(s)" checked="@(Model.FontSize == s)" />
+                        <label class="btn btn-outline-primary" for="fs@(s)" style="font-size:@(s)px">@(s)px</label>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">@Icon("menu")Menu chức năng</div>
+            <div class="card-body">
+                <label class="form-label d-block">Vị trí menu</label>
+                <div class="opt-grid">
+                    @foreach (var (code, name) in UiTheme.MenuPositions)
+                    {
+                        <label class="opt-card">
+                            <input type="radio" name="Menu" value="@code" checked="@(Model.Menu == code)" />
+                            <span class="lay-demo lay-@code"><i class="lay-nav"></i><i class="lay-main"></i></span>
+                            <span class="opt-name">@name</span>
+                        </label>
+                    }
+                </div>
+                <div class="small text-muted mt-2">Menu trên / dưới hiển thị theo nhóm, rê chuột hoặc bấm vào nhóm để mở. Trên điện thoại / màn hình hẹp menu luôn trượt ra khi bấm nút ☰.</div>
+
+                <label class="form-label d-block mt-3">Màu menu</label>
+                <div class="opt-grid">
+                    @foreach (var (code, name) in UiTheme.MenuStyles)
+                    {
+                        <label class="opt-card">
+                            <input type="radio" name="MenuStyle" value="@code" checked="@(Model.MenuStyle == code)" />
+                            <span class="ms-demo ms-@code"><i></i><i></i><i></i></span>
+                            <span class="opt-name">@name</span>
+                        </label>
+                    }
+                </div>
+            </div>
+        </div>
+    </fieldset>
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary">@Icon("check")Lưu</button>
+        <a class="btn btn-light border" asp-action="Index" asp-route-scope="@(isSystem ? "system" : null)">@Icon("undo")Hủy thay đổi</a>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+    // Xem trước giao diện ngay khi thay đổi (chưa lưu)
+    (function () {
+        const form = document.getElementById('themeForm'), root = document.documentElement;
+        const fields = document.getElementById('themeFields'), useDef = document.getElementById('useDefault');
+        const custom = form.querySelector('input[name=Accent][value=custom]'), picker = form.querySelector('input[name=accentCustom]');
+        const sys = JSON.parse(form.dataset.system);
+        const stacks = {};
+        form.querySelectorAll('input[name=Font]').forEach(i => stacks[i.value] = i.dataset.stack);
+        const rgb = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16)).join(',');
+
+        function read() {
+            const v = n => (form.querySelector('input[name=' + n + ']:checked') || {}).value;
+            const accent = v('Accent');
+            return { font: v('Font'), fontSize: v('FontSize'), accent: accent === 'custom' ? picker.value : accent, menu: v('Menu'), menuStyle: v('MenuStyle') };
+        }
+        function apply(t) {
+            root.style.setProperty('--accent', t.accent);
+            root.style.setProperty('--accent-rgb', rgb(t.accent));
+            root.style.setProperty('--app-font', stacks[t.font] || stacks.system);
+            root.style.setProperty('--app-font-size', t.fontSize + 'px');
+            root.dataset.menu = t.menu;
+            root.dataset.menuStyle = t.menuStyle;
+            if (t.menu === 'top' || t.menu === 'bottom') root.classList.remove('sidebar-mini');
+        }
+        function update() {
+            fields.disabled = !!(useDef && useDef.checked);
+            apply(fields.disabled ? sys : read());
+        }
+        picker.addEventListener('input', () => { custom.checked = true; });
+        form.addEventListener('input', update);
+        form.addEventListener('change', update);
+        update();
+    })();
+</script>
+}

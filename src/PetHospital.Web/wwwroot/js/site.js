@@ -30,10 +30,31 @@ document.addEventListener('submit', function (e) {
         block.querySelector(':scope > .nav-toggle').setAttribute('aria-expanded', String(!collapsed));
     }
 
+    // Menu ngang (vị trí trên / dưới, cấu hình tại trang Giao diện): mỗi nhóm là một menu thả
+    const horizontal = () => !mobile() && /^(top|bottom)$/.test(root.dataset.menu || '');
+    function closeDrops(except) {
+        nav.querySelectorAll('.nav-block.open').forEach(b => {
+            if (b === except) return;
+            b.classList.remove('open');
+            b.querySelector(':scope > .nav-toggle').setAttribute('aria-expanded', 'false');
+        });
+    }
+    document.addEventListener('click', e => { if (horizontal() && !e.target.closest('#sideNav .nav-block')) closeDrops(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrops(); });
+    nav.querySelectorAll('.nav-block').forEach(b => b.addEventListener('mouseleave', () => { if (horizontal()) closeDrops(); }));
+
     // (2) Mở rộng / thu gọn từng nhóm
     nav.addEventListener('click', e => {
         const btn = e.target.closest('.nav-toggle');
-        if (!btn || root.classList.contains('sidebar-mini') && !mobile()) return;
+        if (!btn) return;
+        if (horizontal()) {
+            const block = btn.parentElement, open = !block.classList.contains('open');
+            closeDrops(block);
+            block.classList.toggle('open', open);
+            btn.setAttribute('aria-expanded', String(open));
+            return;
+        }
+        if (root.classList.contains('sidebar-mini') && !mobile()) return;
         const block = btn.parentElement;
         setBlock(block, !block.classList.contains('collapsed'));
         saveCollapsed();
