@@ -1,0 +1,314 @@
+@model DynamicReport
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Tạo báo cáo động" : "Thiết kế báo cáo động"; ViewData["Icon"] = "database";
+    var schema = (List<DbObjectInfo>)ViewBag.Schema;
+    var groups = (List<string>)ViewBag.Groups;
+    var prms = (List<ReportParam>)ViewBag.Params;
+    var preview = ((DynamicResult? Result, string? Error)?)ViewBag.Preview;
+    bool readOnly = ViewBag.ReadOnly;
+    var views = schema.Where(o => o.IsView).ToList();
+    var roles = Model.RoleList().ToHashSet();
+    var viewJson = System.Text.Json.JsonSerializer.Serialize(views.ToDictionary(v => v.FullName, v => v.Columns.Select(c => c.Column).ToList()));
+    var resultCols = preview?.Result?.Columns ?? new List<string>();
+    var types = new[] { ("text", "Chữ"), ("int", "Số nguyên"), ("decimal", "Số thập phân"), ("date", "Ngày"), ("select", "Danh sách chọn") };
+}
+<div class="toolbar align-items-center">
+    <a class="btn btn-sm btn-light" asp-action="Index">&laquo; Báo cáo động</a>
+    @if (Model.Id > 0)
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Show" asp-route-id="@Model.Id">@Icon("eye") Xem báo cáo</a>
+    }
+</div>
+<form asp-action="Save" method="post" id="drForm">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+    <div class="row g-3">
+        <div class="col-xl-8">
+            <div class="card mb-3">
+                <div class="card-header">@Icon("file")Thông tin báo cáo</div>
+                <div class="card-body row g-3">
+                    <div class="col-md-7">
+                        <label asp-for="Name" class="form-label"></label>
+                        <input asp-for="Name" class="form-control" />
+                        <span asp-validation-for="Name" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-5">
+                        <label asp-for="GroupName" class="form-label"></label>
+                        <input asp-for="GroupName" class="form-control" list="drGroups" placeholder="VD: Doanh thu, Chăm sóc khách hàng" />
+                        <datalist id="drGroups">@foreach (var g in groups) { <option value="@g"></option> }</datalist>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Description" class="form-label"></label>
+                        <input asp-for="Description" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label d-block">Nguồn dữ liệu</label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" asp-for="Source" value="Sql" id="srcSql" />
+                            <label class="btn btn-outline-primary" for="srcSql">@Icon("code") Câu lệnh SQL</label>
+                            <input type="radio" class="btn-check" asp-for="Source" value="View" id="srcView" />
+                            <label class="btn btn-outline-primary" for="srcView">@Icon("layers") Chọn View</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3" data-source="Sql">
+                <div class="card-header">@Icon("code")Câu lệnh SQL</div>
+                <div class="card-body">
+                    <textarea asp-for="SqlText" class="form-control sql-editor" rows="14" spellcheck="false"></textarea>
+                    <span asp-validation-for="SqlText" class="text-danger small d-block"></span>
+                    <div class="small text-muted mt-2">
+                        Chỉ được dùng <b>một câu SELECT</b> (có thể bắt đầu bằng WITH). Tham số có sẵn:
+                        <code>@@From</code>, <code>@@To</code> (ngày trong kỳ), <code>@@ToEnd</code> (= ngày sau Đến ngày, dùng <code>[Ngày] &lt; @@ToEnd</code>),
+                        <code>@@BranchId</code> (chi nhánh đang chọn, NULL = toàn chuỗi – nên viết <code>(@@BranchId IS NULL OR BranchId = @@BranchId)</code>),
+                        <code>@@UserId</code>. Tham số khác (VD <code>@@SoThang</code>) tự thêm vào bảng tham số khi Chạy thử / Lưu.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3" data-source="View">
+                <div class="card-header">@Icon("layers")Truy xuất từ View</div>
+                <div class="card-body row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="ViewName" class="form-label"></label>
+                        <select asp-for="ViewName" class="form-select" id="drView">
+                            <option value="">-- Chọn View --</option>
+                            @foreach (var v in views) { <option value="@v.FullName" selected="@(string.Equals(Model.ViewName, v.FullName, StringComparison.OrdinalIgnoreCase) || string.Equals(Model.ViewName, v.Name, StringComparison.OrdinalIgnoreCase))">@v.FullName</option> }
+                        </select>
+                        <span asp-validation-for="ViewName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="DateColumn" class="form-label"></label>
+                        <select asp-for="DateColumn" class="form-select" data-cols data-value="@Model.DateColumn"><option value="">(Không lọc theo kỳ)</option></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="BranchColumn" class="form-label"></label>
+                        <select asp-for="BranchColumn" class="form-select" data-cols data-value="@Model.BranchColumn"><option value="">(Không lọc chi nhánh)</option></select>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Columns" class="form-label"></label>
+                        <input asp-for="Columns" class="form-control" placeholder="Để trống = mọi cột; bấm tên cột ở khung bên phải để thêm" />
+                    </div>
+                    <div class="col-md-8">
+                        <label asp-for="WhereClause" class="form-label"></label>
+                        <input asp-for="WhereClause" class="form-control font-monospace" placeholder="VD: [Còn nợ] > 0 AND [Trạng thái] <> N'Đã hủy'" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="OrderBy" class="form-label"></label>
+                        <input asp-for="OrderBy" class="form-control font-monospace" placeholder="VD: [Ngày] DESC" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">@Icon("filter")Tham số người xem nhập</div>
+                <div class="card-body">
+                    @if (prms.Count == 0)
+                    {
+                        <div class="small text-muted">Chưa có tham số tự khai báo. Viết <code>@@TenThamSo</code> trong câu lệnh (hoặc điều kiện lọc của View) rồi bấm <b>Chạy thử</b> – tham số sẽ xuất hiện ở đây để đặt nhãn, kiểu, giá trị mặc định.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-1">
+                                <thead><tr><th>Tham số</th><th>Nhãn hiển thị</th><th>Kiểu</th><th>Mặc định</th><th>Danh sách chọn (mỗi dòng một giá trị, dạng giá trị=nhãn)</th></tr></thead>
+                                <tbody>
+                                    @for (var i = 0; i < prms.Count; i++)
+                                    {
+                                        var p = prms[i];
+                                        <tr>
+                                            <td><code>@@@p.Name</code><input type="hidden" name="prm[@i].Name" value="@p.Name" /></td>
+                                            <td><input class="form-control form-control-sm" name="prm[@i].Label" value="@p.Label" /></td>
+                                            <td>
+                                                <select class="form-select form-select-sm" name="prm[@i].Type">
+                                                    @foreach (var (code, name) in types) { <option value="@code" selected="@(p.Type == code)">@name</option> }
+                                                </select>
+                                            </td>
+                                            <td><input class="form-control form-control-sm" name="prm[@i].Default" value="@p.Default" style="min-width:110px" /></td>
+                                            <td><textarea class="form-control form-control-sm" name="prm[@i].Options" rows="1">@p.Options</textarea></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="small text-muted">Ngày mặc định có thể là <code>today</code>, <code>monthstart</code>, <code>yearstart</code>, số ngày so với hôm nay (<code>-30</code>, <code>30</code>) hoặc <code>2026-01-31</code>.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">@Icon("chart")Hiển thị & phân quyền</div>
+                <div class="card-body row g-3">
+                    <div class="col-md-4">
+                        <label asp-for="ChartLabel" class="form-label"></label>
+                        <input asp-for="ChartLabel" class="form-control" list="drCols" placeholder="Tên cột kết quả" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="ChartValue" class="form-label"></label>
+                        <input asp-for="ChartValue" class="form-control" list="drCols" placeholder="Cột số" />
+                        <datalist id="drCols">@foreach (var c in resultCols) { <option value="@c"></option> }</datalist>
+                    </div>
+                    <div class="col-md-2">
+                        <label asp-for="SortOrder" class="form-label"></label>
+                        <input asp-for="SortOrder" class="form-control" type="number" />
+                    </div>
+                    <div class="col-md-2 d-flex flex-column justify-content-end gap-1">
+                        <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check"><input asp-for="ShowTotals" class="form-check-input" /><label asp-for="ShowTotals" class="form-check-label"></label></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label d-block">Vai trò được xem <span class="small text-muted">(không chọn = mọi người có quyền xem báo cáo)</span></label>
+                        @foreach (var (code, name) in AppRoles.All)
+                        {
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="roles" value="@code" id="role_@code" checked="@roles.Contains(code)" />
+                                <label class="form-check-label" for="role_@code">@name</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mb-3 dr-actions">
+                <button class="btn btn-outline-primary" name="cmd" value="preview">@Icon("eye") Chạy thử</button>
+                <button class="btn btn-primary" name="cmd" value="save">@Icon("check") Lưu</button>
+                <span class="small text-muted align-self-center">Chạy thử dùng kỳ tháng này, chi nhánh đang làm việc và giá trị mặc định của tham số (tối đa 200 dòng).</span>
+            </div>
+
+            @if (preview is { } pv)
+            {
+                <div class="card mb-3" id="drPreview">
+                    <div class="card-header">@Icon("eye")Kết quả chạy thử</div>
+                    @if (pv.Error != null)
+                    {
+                        <div class="card-body"><div class="alert alert-danger mb-0">@pv.Error</div></div>
+                    }
+                    else if (pv.Result is { } res)
+                    {
+                        <div class="card-body py-2 small text-muted">
+                            @(res.Rows.Count)@(res.Truncated ? "+" : "") dòng · @res.Columns.Count cột · @res.ElapsedMs ms
+                            @if (res.Truncated) { <span>· chỉ hiển thị 200 dòng đầu</span> }
+                        </div>
+                        var t = new ReportTable { Headers = res.Columns, Rows = res.Rows.Select(x => x.ToList()).ToList() };
+                        for (var i = 0; i < res.Columns.Count; i++) { if (res.IsNumeric(i)) { t.NumericColumns.Add(i); } }
+                        <div class="dr-preview"><partial name="_ReportTable" model="t" /></div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card dr-schema">
+                <div class="card-header">@Icon("database")Cấu trúc dữ liệu</div>
+                <div class="card-body pb-2">
+                    <input type="search" class="form-control form-control-sm mb-2" placeholder="Tìm view, bảng, cột…" id="drSchemaSearch" aria-label="Tìm view, bảng, cột" />
+                    <div class="small text-muted mb-2">Bấm tên để chèn vào câu lệnh (hoặc thêm vào Cột hiển thị khi dùng View). Các view <code>rpt_*</code> dựng sẵn cho báo cáo, tên cột tiếng Việt.</div>
+                    <div class="dr-schema-list">
+                        @foreach (var o in schema)
+                        {
+                            var desc = PetHospital.Web.Data.ReportViews.All.FirstOrDefault(x => x.Name == o.Name).Description;
+                            <details class="dr-obj" data-obj="@o.FullName">
+                                <summary>
+                                    <span class="badge @(o.IsView ? "bg-primary" : "bg-light text-muted border")">@(o.IsView ? "View" : "Bảng")</span>
+                                    <button type="button" class="dr-ins fw-semibold" data-ins="@o.Name" data-view="@(o.IsView ? o.FullName : "")">@o.Name</button>
+                                    @if (o.Schema != "dbo") { <span class="small text-muted">(@o.Schema)</span> }
+                                </summary>
+                                @if (desc != null) { <div class="small text-muted ms-1 mb-1">@desc</div> }
+                                <ul>
+                                    @foreach (var (col, type) in o.Columns)
+                                    {
+                                        <li><button type="button" class="dr-ins" data-ins="[@col]" data-col="@col">@col</button> <span class="text-muted">@type</span></li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </div>
+                </div>
+            </div>
+            @if (!readOnly)
+            {
+                <div class="small text-muted mt-2">Gợi ý bảo mật: khai báo <code>ConnectionStrings__ReportConnection</code> bằng tài khoản SQL chỉ đọc để báo cáo động không thể ghi dữ liệu kể cả khi có lỗ hổng.</div>
+            }
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+    (function () {
+        const form = document.getElementById('drForm');
+        const viewCols = @Html.Raw(viewJson);
+        const sql = document.getElementById('SqlText');
+        const viewSel = document.getElementById('drView');
+        const colsInput = document.getElementById('Columns');
+        const source = () => (form.querySelector('input[name=Source]:checked') || {}).value || 'Sql';
+
+        // Hiện phần nhập theo nguồn dữ liệu
+        function syncSource() {
+            form.querySelectorAll('[data-source]').forEach(el => el.hidden = el.dataset.source !== source());
+        }
+        form.querySelectorAll('input[name=Source]').forEach(r => r.addEventListener('change', syncSource));
+        syncSource();
+
+        // Danh sách cột của View cho ô Cột ngày / Cột chi nhánh
+        function fillCols() {
+            const cols = viewCols[viewSel.value] || [];
+            form.querySelectorAll('select[data-cols]').forEach(sel => {
+                const keep = sel.value || sel.dataset.value || '';
+                sel.querySelectorAll('option:not(:first-child)').forEach(o => o.remove());
+                cols.forEach(c => { const o = new Option(c, c); if (c.toLowerCase() === keep.toLowerCase()) o.selected = true; sel.add(o); });
+                sel.dataset.value = '';
+            });
+            const dl = document.getElementById('drCols');
+            const have = new Set(Array.from(dl.options).map(o => o.value));
+            cols.forEach(c => { if (!have.has(c)) dl.appendChild(new Option(c, c)); });
+        }
+        viewSel.addEventListener('change', fillCols);
+        fillCols();
+
+        // Chèn tên view / cột khi bấm ở khung cấu trúc dữ liệu
+        function insertAtCursor(el, text) {
+            const s = el.selectionStart ?? el.value.length, e = el.selectionEnd ?? el.value.length;
+            el.value = el.value.slice(0, s) + text + el.value.slice(e);
+            el.focus();
+            el.selectionStart = el.selectionEnd = s + text.length;
+        }
+        document.querySelector('.dr-schema-list').addEventListener('click', e => {
+            const b = e.target.closest('.dr-ins');
+            if (!b) return;
+            e.preventDefault();
+            if (source() === 'View') {
+                if (b.dataset.view) { viewSel.value = b.dataset.view; fillCols(); }
+                else if (b.dataset.col) {
+                    const list = colsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+                    if (!list.includes(b.dataset.col)) list.push(b.dataset.col);
+                    colsInput.value = list.join(', ');
+                }
+            } else insertAtCursor(sql, b.dataset.ins);
+        });
+
+        // Tìm trong cấu trúc dữ liệu
+        document.getElementById('drSchemaSearch').addEventListener('input', function () {
+            const q = this.value.trim().toLowerCase();
+            document.querySelectorAll('.dr-obj').forEach(d => {
+                const nameHit = d.dataset.obj.toLowerCase().includes(q);
+                let colHit = false;
+                d.querySelectorAll('li').forEach(li => { const hit = !q || nameHit || li.textContent.toLowerCase().includes(q); li.hidden = !hit; colHit ||= hit && !!q; });
+                d.hidden = q && !nameHit && !colHit;
+                d.open = !!q && colHit && !nameHit;
+            });
+        });
+
+        // Tab trong ô SQL chèn khoảng trắng; Ctrl+Enter = chạy thử
+        sql.addEventListener('keydown', e => {
+            if (e.key === 'Tab') { e.preventDefault(); insertAtCursor(sql, '    '); }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.querySelector('button[value=preview]').click(); }
+        });
+        const pv = document.getElementById('drPreview');
+        if (pv) pv.scrollIntoView({ block: 'start' });
+    })();
+</script>
+}

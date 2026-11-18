@@ -1,0 +1,14 @@
+@{
+    // Nút xuất Excel / in: giữ nguyên mọi điều kiện lọc đang có trên URL
+    string Url(string export)
+    {
+        var q = Context.Request.Query.Where(kv => kv.Key != "export")
+            .Select(kv => Uri.EscapeDataString(kv.Key) + "=" + Uri.EscapeDataString(kv.Value.ToString()))
+            .Append("export=" + export);
+        return Context.Request.PathBase + Context.Request.Path + "?" + string.Join("&", q);
+    }
+}
+<div class="ms-auto d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="@Url("xlsx")">@Icon("download") Excel</a>
+    <a class="btn btn-sm btn-outline-secondary" href="@Url("print")" target="_blank">@Icon("print") In / PDF</a>
+</div>

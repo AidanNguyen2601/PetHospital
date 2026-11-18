@@ -97,6 +97,9 @@ public class PetDbContext : DbContext
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
     public DbSet<Payment> Payments => Set<Payment>();
 
+    // ----- Báo cáo động -----
+    public DbSet<DynamicReport> DynamicReports => Set<DynamicReport>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);

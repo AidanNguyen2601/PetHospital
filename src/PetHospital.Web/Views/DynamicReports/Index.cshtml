@@ -1,0 +1,44 @@
+@model List<DynamicReport>
+@{
+    ViewData["Title"] = "Báo cáo động"; ViewData["Icon"] = "database";
+    bool readOnly = ViewBag.ReadOnly;
+}
+<div class="toolbar align-items-center">
+    <a class="btn btn-sm btn-light" asp-controller="Reports" asp-action="Index">&laquo; Danh sách báo cáo</a>
+    <div class="ms-auto"><a class="btn btn-sm btn-primary" asp-action="Create">@Icon("plus") Tạo báo cáo động</a></div>
+</div>
+@if (!readOnly)
+{
+    <div class="alert alert-info small">
+        Báo cáo động chỉ được chạy câu lệnh đọc dữ liệu (SELECT) – phần mềm kiểm tra câu lệnh và luôn hoàn tác mọi thay đổi.
+        Để an toàn tuyệt đối, khai báo thêm chuỗi kết nối <code>ConnectionStrings__ReportConnection</code> bằng tài khoản SQL chỉ có quyền đọc (db_datareader).
+    </div>
+}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+            <thead><tr><th>Tên báo cáo</th><th>Nhóm</th><th>Nguồn dữ liệu</th><th>Vai trò được xem</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Show" asp-route-id="@r.Id" class="fw-semibold">@r.Name</a><div class="small text-muted">@r.Description</div></td>
+                        <td>@r.GroupName</td>
+                        <td>@r.Source.GetDisplayName()@if (r.Source == ReportSource.View) { <div class="small text-muted">@r.ViewName</div> }</td>
+                        <td class="small">@(r.RoleList().Any() ? string.Join(", ", r.RoleList().Select(AppRoles.DisplayName)) : T("Mọi người có quyền xem báo cáo"))</td>
+                        <td>@if (r.IsActive) { <span class="badge bg-success">Đang dùng</span> } else { <span class="badge bg-secondary">Ngừng dùng</span> }</td>
+                        <td class="small text-muted">@r.UpdatedAt.ToDateTime()<div>@r.UpdatedBy</div></td>
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-sm btn-light border" asp-action="Edit" asp-route-id="@r.Id" title="Sửa">@Icon("edit")</a>
+                            <a class="btn btn-sm btn-light border" asp-action="Duplicate" asp-route-id="@r.Id" title="Nhân bản">@Icon("layers")</a>
+                            <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline" data-confirm="Xóa báo cáo động này?">
+                                <button class="btn btn-sm btn-light border text-danger" title="Xóa">@Icon("trash")</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (Model.Count == 0) { <tr><td colspan="7" class="text-muted p-3">Chưa có báo cáo động.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>

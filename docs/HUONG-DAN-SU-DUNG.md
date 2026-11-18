@@ -64,8 +64,20 @@
   Ghi sổ trừ tồn chi nhánh xuất (theo lô hạn gần nhất trước) và cộng ngay vào chi nhánh nhận, giữ nguyên số lô, hạn dùng, giá vốn. Phiếu chỉ sửa / ghi sổ / xóa ở chi nhánh xuất; chi nhánh nhận xem ở tab *Nhận về*.
 
 ## Quản lý / Quản trị
-- *Báo cáo*: doanh thu, lãi gộp, hiệu suất bác sĩ, lượt khám, công nợ, nhập – xuất – tồn, tiêm phòng (Excel, PDF).
-  Ô chọn phạm vi: một chi nhánh hoặc **Toàn chuỗi** (người dùng toàn chuỗi). Báo cáo **So sánh chi nhánh**: lượt khám, nội trú, khách mới, doanh thu, lãi gộp, thực thu, công nợ, giá trị tồn kho.
+- *Báo cáo chuẩn* (*Báo cáo › Báo cáo & thống kê*, ô **Tìm báo cáo** để lọc nhanh; mọi báo cáo xuất Excel, in / PDF):
+  - **Doanh thu & thu ngân**: doanh thu theo ngày, **theo tháng** (mặc định từ đầu năm), theo dịch vụ / hàng hóa, **sổ thu tiền chi tiết**, công nợ khách hàng, **hóa đơn đã hủy**.
+  - **Khám chữa bệnh**: hiệu suất bác sĩ, lượt khám & chẩn đoán, **theo loài**, **tình hình lịch hẹn** (tỷ lệ đến khám), thống kê tiêm phòng, **mũi tiêm đến hạn / quá hạn** (mặc định 30 ngày tới – danh sách gọi nhắc khách), **công suất chuồng & nội trú**.
+  - **Khách hàng**: **khách chi tiêu nhiều nhất** (top 100), **khách hàng mới**.
+  - **Kho thuốc**: nhập – xuất – tồn, **thuốc hết hạn / sắp hết hạn** (theo số ngày cảnh báo trong *Thông tin chuỗi & tham số*), **hàng dưới tồn tối thiểu** (gợi ý số lượng cần nhập).
+  - Ô chọn phạm vi: một chi nhánh hoặc **Toàn chuỗi** (người dùng toàn chuỗi). Báo cáo **So sánh chi nhánh**: lượt khám, nội trú, khách mới, doanh thu, lãi gộp, thực thu, công nợ, giá trị tồn kho. Giá vốn / lãi gộp chỉ hiện với người có quyền *Xem giá vốn*.
+- **Báo cáo động** (*Báo cáo › Thiết kế báo cáo động*, quyền **Thiết kế báo cáo động** – mặc định chỉ quản trị hệ thống; nên giao cho người hiểu SQL):
+  - **Tạo báo cáo động** → tên, nhóm (báo cáo hiện theo nhóm ở trang Báo cáo), mô tả → chọn nguồn dữ liệu:
+    - **Câu lệnh SQL**: một câu `SELECT` (hoặc `WITH … SELECT`). Tham số có sẵn: `@From`, `@To` (kỳ báo cáo), `@ToEnd` (ngày sau *Đến ngày* – viết `[Ngày] >= @From AND [Ngày] < @ToEnd`), `@BranchId` (chi nhánh đang chọn, NULL = toàn chuỗi – viết `(@BranchId IS NULL OR BranchId = @BranchId)`), `@UserId`. Tham số khác (VD `@SoThang`) được tự nhận diện khi bấm **Chạy thử**, đặt nhãn, kiểu (chữ, số, ngày, danh sách chọn), giá trị mặc định (ngày: `today`, `monthstart`, `yearstart`, `-30`…).
+    - **Chọn View**: chọn view, *cột lọc theo ngày*, *cột chi nhánh* (lọc tự động theo chi nhánh đang chọn), cột hiển thị, điều kiện lọc (WHERE), sắp xếp (ORDER BY).
+  - Khung **Cấu trúc dữ liệu** bên phải liệt kê view & bảng cùng các cột – bấm để chèn vào câu lệnh. Các view dựng sẵn `rpt_HoaDon`, `rpt_DoanhThuChiTiet`, `rpt_ThuTien`, `rpt_LuotKham`, `rpt_TiemPhong`, `rpt_LichHen`, `rpt_NoiTru`, `rpt_KhachHang`, `rpt_TonKho` có tên cột tiếng Việt, trạng thái đã đổi thành chữ và cột `BranchId`.
+  - **Chạy thử** (Ctrl+Enter trong ô SQL) xem 200 dòng đầu với kỳ tháng này; **Lưu** khi đã đúng. Tùy chọn biểu đồ (cột nhãn + cột giá trị), dòng tổng cộng, **vai trò được xem** (không chọn = mọi người có quyền xem báo cáo), ngừng dùng, nhân bản.
+  - An toàn: chỉ cho phép đọc dữ liệu (chặn INSERT / UPDATE / DELETE / DROP / EXEC / SELECT INTO…, nhiều câu lệnh, cột mật khẩu); mỗi lần chạy nằm trong giao dịch luôn hoàn tác, tối đa 60 giây và 10.000 dòng. Khuyến nghị thêm biến môi trường `ConnectionStrings__ReportConnection` dùng tài khoản SQL chỉ có quyền đọc (`db_datareader`) – khi có, báo cáo động chạy bằng tài khoản này.
+  - Có sẵn 4 báo cáo mẫu (danh sách hóa đơn từ View, doanh thu theo nhóm, khách lâu chưa quay lại, lượt khám theo bác sĩ & loài) để tham khảo.
 - *Dịch vụ & bảng giá*, *Loài & giống*, *Chuồng lưu trú*.
 - **Chi nhánh** (*Quản trị › Chi nhánh*): thêm chi nhánh (mã ≤ 6 ký tự – tiền tố số chứng từ, tên, địa chỉ, điện thoại in trên chứng từ). Chi nhánh đã có dữ liệu chỉ ngừng hoạt động, không xóa.
   Sau khi thêm: gán nhân viên → chuyển sang chi nhánh mới → khai báo chuồng → nhập kho (hoặc chuyển kho từ chi nhánh khác).

@@ -1,0 +1,14 @@
+@model ReportPage
+@* Chọn chi nhánh + kỳ báo cáo (dùng trong form GET của trang báo cáo) *@
+@if (Model.BranchSelect && Model.Scope != null && Model.Scope.Options.Count > 1)
+{
+    <select name="branch" class="form-select form-select-sm" style="max-width:220px" onchange="this.form.submit()" title="Phạm vi chi nhánh">
+        @foreach (var o in Model.Scope.Options) { <option value="@o.Value" selected="@o.Selected">@o.Text</option> }
+    </select>
+}
+else if (Model.Scope != null) { <input type="hidden" name="branch" value="@Model.Scope.Param" /> }
+@if (Model.Dated)
+{
+    <span class="small text-muted">Từ</span><input type="date" name="from" value="@Model.From.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+    <span class="small text-muted">đến</span><input type="date" name="to" value="@Model.To.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
+}

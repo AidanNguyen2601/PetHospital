@@ -109,7 +109,11 @@
                 <div class="nav-block" data-nav="reports">
                     <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>Báo cáo</span>@Icon("chevron", "chev")</button>
                     <div class="nav-items"><div class="nav-inner">
-                        <a class="@Active("Reports")" asp-controller="Reports" asp-action="Index">@Icon("chart")<span>Báo cáo & thống kê</span></a>
+                        <a class="@(ctrl == "Reports" || (ctrl == "DynamicReports" && act == "Show") ? "active" : "")" asp-controller="Reports" asp-action="Index">@Icon("chart")<span>Báo cáo & thống kê</span></a>
+                        @if (Me.Has(Perm.ReportDesign))
+                        {
+                            <a class="@(ctrl == "DynamicReports" && act != "Show" ? "active" : "")" asp-controller="DynamicReports" asp-action="Index">@Icon("database")<span>Thiết kế báo cáo động</span></a>
+                        }
                     </div></div>
                 </div>
             }

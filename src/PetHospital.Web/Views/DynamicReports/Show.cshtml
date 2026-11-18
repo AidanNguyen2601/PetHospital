@@ -1,0 +1,62 @@
+@model ReportTable
+@{
+    var rp = (ReportPage)ViewBag.Page;
+    var r = (DynamicReport)ViewBag.Report;
+    var prms = (List<ReportParam>)ViewBag.Params;
+    var inputs = (Dictionary<string, string>)ViewBag.Inputs;
+    ViewData["Title"] = rp.Name; ViewData["Icon"] = r.Source == ReportSource.Sql ? "code" : "layers";
+    var print = ViewData["Layout"] as string == "_PrintLayout";
+}
+@if (print)
+{
+    <partial name="_PrintHeader" model="@(Context.RequestServices.GetRequiredService<SettingsService>())" />
+    <h4 class="text-center fw-bold my-2 text-uppercase">@Model.Title</h4>
+    <div class="text-center small mb-3">@Model.Subtitle</div>
+}
+else
+{
+    <form method="get" class="toolbar align-items-center">
+        <a class="btn btn-sm btn-light" asp-controller="Reports" asp-action="Index">&laquo; Danh sách báo cáo</a>
+        <partial name="_ReportScope" model="rp" />
+        @foreach (var p in prms)
+        {
+            var id = "p_" + p.Name;
+            <label class="small text-muted mb-0" for="@id">@p.Label</label>
+            @switch (p.Type)
+            {
+                case "date":
+                    <input type="date" class="form-control form-control-sm" style="max-width:150px" name="p.@p.Name" id="@id" value="@inputs[p.Name]" />
+                    break;
+                case "int":
+                case "decimal":
+                    <input type="number" step="@(p.Type == "int" ? "1" : "any")" class="form-control form-control-sm" style="max-width:130px" name="p.@p.Name" id="@id" value="@inputs[p.Name]" />
+                    break;
+                case "select":
+                    <select class="form-select form-select-sm" style="max-width:200px" name="p.@p.Name" id="@id">
+                        @foreach (var (value, label) in DynamicReportEngine.Options(p)) { <option value="@value" selected="@(value == inputs[p.Name])">@label</option> }
+                    </select>
+                    break;
+                default:
+                    <input type="text" class="form-control form-control-sm" style="max-width:200px" name="p.@p.Name" id="@id" value="@inputs[p.Name]" />
+                    break;
+            }
+        }
+        <button class="btn btn-sm btn-outline-secondary">Xem</button>
+        <partial name="_ReportExport" />
+        @if (Me.Has(Perm.ReportDesign))
+        {
+            <a class="btn btn-sm btn-outline-primary" asp-action="Edit" asp-route-id="@r.Id">@Icon("edit") Thiết kế</a>
+        }
+    </form>
+    <div class="small text-muted mb-2">@Model.Subtitle @if (!string.IsNullOrWhiteSpace(r.Description)) { <span>· @r.Description</span> }</div>
+    @if (rp.Error != null) { <div class="alert alert-danger">@rp.Error</div> }
+    @if (rp.Note != null) { <div class="alert alert-warning py-2">@rp.Note</div> }
+    @if (Model.Chart != null && Model.Chart.Count > 0)
+    {
+        <div class="card mb-3"><div class="card-body"><partial name="_BarChart" model="@(new BarChartModel(Model.Chart, Model.Chart.Any(c => c.Value >= 1000)))" /></div></div>
+    }
+}
+@if (rp.Error == null)
+{
+    <partial name="_ReportTable" model="Model" />
+}

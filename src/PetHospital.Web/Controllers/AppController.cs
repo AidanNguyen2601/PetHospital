@@ -66,6 +66,25 @@ public abstract class AppController : Controller
         (csv ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(s => int.TryParse(s.Trim(), out var v) ? v : 0).Where(v => v > 0).Distinct().ToList();
 
+    /// <summary>
+    /// Phạm vi chi nhánh của báo cáo: trống = chi nhánh đang làm việc, 0 = toàn chuỗi (người dùng toàn chuỗi), &gt;0 = một chi nhánh được làm.
+    /// Đặt luôn bộ lọc chi nhánh của DbContext theo phạm vi.
+    /// </summary>
+    protected async Task<ViewModels.ReportScope> ReportScopeAsync(int? branch)
+    {
+        var branches = (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                Db.Branches.OrderBy(b => b.SortOrder).ThenBy(b => b.Name)))
+            .Where(b => Me.CanAccessBranch(b.Id)).ToList();
+        int? scope = Me.BranchId;
+        if (branch == 0 && Me.AllBranches) scope = null;
+        else if (branch > 0 && branches.Any(b => b.Id == branch)) scope = branch;
+        var options = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+        if (Me.AllBranches) options.Add(new("Toàn chuỗi (tất cả chi nhánh)", "0", scope == null));
+        options.AddRange(branches.Select(b => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem(b.Name, b.Id.ToString(), b.Id == scope)));
+        Db.CurrentBranchId = scope;
+        return new(scope, scope?.ToString() ?? "0", scope == null ? "Toàn chuỗi" : branches.FirstOrDefault(b => b.Id == scope)?.Name, options, branches);
+    }
+
     /// <summary>Trả file Excel</summary>
     protected FileContentResult Excel(string fileName, string sheet, IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<object?>> rows) =>
         File(Spreadsheet.ToXlsx(L.Text(sheet), headers.Select(L.Text).ToList(), rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

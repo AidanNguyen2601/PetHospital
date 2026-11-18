@@ -89,6 +89,7 @@ builder.Services.AddSingleton<SecurityCache>();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddScoped<DynamicReportEngine>();
 builder.Services.AddScoped<Lookups>();
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<InvoiceService>();

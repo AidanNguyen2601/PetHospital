@@ -12,7 +12,7 @@ namespace PetHospital.Web.Data;
 public static class SchemaUpgrade
 {
     /// <summary>Bảng mới của mô hình chi nhánh (tạo theo đúng script EF sinh ra)</summary>
-    private static readonly string[] NewTables = { "Branches", "UserBranches", "ProductStocks", "StockTransfers", "StockTransferLines", "Languages", "TranslationKeys", "Translations" };
+    private static readonly string[] NewTables = { "Branches", "UserBranches", "ProductStocks", "StockTransfers", "StockTransferLines", "Languages", "TranslationKeys", "Translations", "DynamicReports" };
 
     /// <summary>Bảng nghiệp vụ được thêm cột BranchId</summary>
     private static readonly string[] ScopedTables =

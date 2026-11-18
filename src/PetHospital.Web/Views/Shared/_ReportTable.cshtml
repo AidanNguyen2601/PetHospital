@@ -1,0 +1,37 @@
+@model ReportTable
+@{
+    var print = ViewData["Layout"] as string == "_PrintLayout";
+    string Cell(object? v) => v switch
+    {
+        null => "",
+        decimal d => d == decimal.Truncate(d) ? d.ToMoney() : d.ToString("#,##0.##", FormatExtensions.Vi),
+        double x => x.ToString("#,##0.##", FormatExtensions.Vi),
+        float x => x.ToString("#,##0.##", FormatExtensions.Vi),
+        int n => n.ToString("N0", FormatExtensions.Vi),
+        long n => n.ToString("N0", FormatExtensions.Vi),
+        short n => n.ToString("N0", FormatExtensions.Vi),
+        byte n => n.ToString(),
+        DateTime dt => dt.TimeOfDay == TimeSpan.Zero ? dt.ToDate() : dt.ToDateTime(),
+        DateTimeOffset dto => dto.LocalDateTime.ToDateTime(),
+        bool b => b ? "✓" : "",
+        _ => v.ToString() ?? ""
+    };
+}
+<div class="@(print ? "" : "card")">
+    <div class="table-responsive">
+        <table class="table table-sm @(print ? "table-bordered" : "table-hover") mb-0 report-table" data-no-grid>
+            <thead><tr>@for (var c = 0; c < Model.Headers.Count; c++) { <th class="@(Model.NumericColumns.Contains(c) ? "text-end" : "")">@Model.Headers[c]</th> }</tr></thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>@for (var c = 0; c < row.Count; c++) { <td class="@(Model.NumericColumns.Contains(c) ? "text-end money" : "")">@Cell(row[c])</td> }</tr>
+                }
+                @if (Model.Rows.Count == 0) { <tr><td colspan="@Math.Max(1, Model.Headers.Count)" class="text-muted p-3">Không có dữ liệu.</td></tr> }
+            </tbody>
+            @if (Model.Footer != null)
+            {
+                <tfoot><tr class="fw-bold">@for (var c = 0; c < Model.Footer.Count; c++) { <td class="@(Model.NumericColumns.Contains(c) ? "text-end money" : "")">@Cell(Model.Footer[c])</td> }</tr></tfoot>
+            }
+        </table>
+    </div>
+</div>

@@ -1,16 +1,78 @@
 @{
     ViewData["Title"] = "Báo cáo & thống kê"; ViewData["Icon"] = "chart";
+    var dynamic = (List<DynamicReport>)ViewBag.Dynamic;
+    var multiBranch = Me.AllBranches || (Me.BranchIds?.Count ?? 0) > 1;
+    var canDesign = Me.Has(Perm.ReportDesign);
 }
-<div class="row g-3">
-    @foreach (var r in ReportsController.All.Where(r => r.Id != "branches" || Me.AllBranches || (Me.BranchIds?.Count ?? 0) > 1))
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <input type="search" class="form-control form-control-sm" style="max-width:320px" placeholder="Tìm báo cáo…" id="reportSearch" aria-label="Tìm báo cáo" />
+    @if (canDesign)
     {
-        <div class="col-md-6 col-xl-4">
-            <a class="card report-card h-100 text-decoration-none text-reset" asp-action="Show" asp-route-id="@r.Id">
-                <div class="card-body d-flex gap-3">
-                    <span class="report-ico">@Icon(r.Icon)</span>
-                    <div><div class="fw-semibold">@r.Name</div><div class="small text-muted">@r.Description</div></div>
-                </div>
-            </a>
+        <div class="ms-auto d-flex gap-2">
+            <a class="btn btn-sm btn-outline-primary" asp-controller="DynamicReports" asp-action="Index">@Icon("database") Quản lý báo cáo động</a>
+            <a class="btn btn-sm btn-primary" asp-controller="DynamicReports" asp-action="Create">@Icon("plus") Tạo báo cáo động</a>
         </div>
     }
 </div>
+
+<h6 class="report-group-title">@Icon("chart")Báo cáo chuẩn</h6>
+@foreach (var g in ReportsController.Groups)
+{
+    var items = ReportsController.All.Where(r => r.Group == g && (r.Id != "branches" || multiBranch)).ToList();
+    if (items.Count == 0) { continue; }
+    <div class="report-section" data-report-section>
+        <div class="report-group-sub">@g</div>
+        <div class="row g-3 mb-3">
+            @foreach (var r in items)
+            {
+                <div class="col-md-6 col-xl-4" data-report-item>
+                    <a class="card report-card h-100 text-decoration-none text-reset" asp-action="Show" asp-route-id="@r.Id">
+                        <div class="card-body d-flex gap-3">
+                            <span class="report-ico">@Icon(r.Icon)</span>
+                            <div><div class="fw-semibold">@r.Name</div><div class="small text-muted">@r.Description</div></div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<h6 class="report-group-title mt-2">@Icon("database")Báo cáo động</h6>
+@if (dynamic.Count == 0)
+{
+    <div class="text-muted small mb-3">Chưa có báo cáo động nào bạn được xem.@if (canDesign) { <text> </text><a asp-controller="DynamicReports" asp-action="Create">Tạo báo cáo động</a> }</div>
+}
+@foreach (var g in dynamic.GroupBy(r => string.IsNullOrWhiteSpace(r.GroupName) ? "Khác" : r.GroupName))
+{
+    <div class="report-section" data-report-section>
+        <div class="report-group-sub">@g.Key</div>
+        <div class="row g-3 mb-3">
+            @foreach (var r in g)
+            {
+                <div class="col-md-6 col-xl-4" data-report-item>
+                    <a class="card report-card h-100 text-decoration-none text-reset" asp-controller="DynamicReports" asp-action="Show" asp-route-id="@r.Id">
+                        <div class="card-body d-flex gap-3">
+                            <span class="report-ico">@Icon(r.Source == ReportSource.Sql ? "code" : "layers")</span>
+                            <div>
+                                <div class="fw-semibold">@r.Name @if (!r.IsActive) { <span class="badge bg-secondary">Ngừng dùng</span> }</div>
+                                <div class="small text-muted">@r.Description</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+    // Lọc nhanh danh sách báo cáo theo tên / mô tả
+    document.getElementById('reportSearch').addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('[data-report-item]').forEach(el => { el.hidden = q && !el.textContent.toLowerCase().includes(q); });
+        document.querySelectorAll('[data-report-section]').forEach(s => { s.hidden = !s.querySelector('[data-report-item]:not([hidden])'); });
+    });
+</script>
+}

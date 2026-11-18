@@ -18,6 +18,8 @@ public static class DbSeeder
         var log = scope.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger("PetHospital.SchemaUpgrade");
         db.DefaultBranchId = await SchemaUpgrade.RunAsync(db, log);
         await EnsureBaseDataAsync(db);
+        await ReportViews.EnsureAsync(db, log);
+        await ReportViews.SeedSamplesAsync(db);
         ChainSettings.ShareCustomers = (await db.SystemSettings.Where(s => s.Key == SettingsService.ShareCustomers).Select(s => s.Value).FirstOrDefaultAsync() ?? "1") != "0";
 
         if (!await db.Users.AnyAsync())

@@ -1,20 +1,8 @@
 @model ReportTable
 @{
-    var def = ((string Id, string Name, string Icon, string Description))ViewBag.Def;
-    ViewData["Title"] = def.Name; ViewData["Icon"] = def.Icon;
-    DateTime from = ViewBag.From, to = ViewBag.To;
+    var rp = (ReportPage)ViewBag.Page;
+    ViewData["Title"] = rp.Name; ViewData["Icon"] = rp.Icon;
     var print = ViewData["Layout"] as string == "_PrintLayout";
-    var branchOptions = (List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.BranchOptions;
-    string? branchParam = ViewBag.BranchParam;
-    string Cell(object? v) => v switch
-    {
-        null => "",
-        decimal d => d.ToMoney(),
-        double x => x.ToString("N1"),
-        int n => n.ToString("N0", FormatExtensions.Vi),
-        DateTime dt => dt.ToDate(),
-        _ => v.ToString() ?? ""
-    };
 }
 @if (print)
 {
@@ -24,47 +12,16 @@
 }
 else
 {
-    <form method="get" class="toolbar">
+    <form method="get" class="toolbar align-items-center">
         <a class="btn btn-sm btn-light" asp-action="Index">&laquo; Danh sách báo cáo</a>
-        @if (branchOptions.Count > 1 && def.Id != "branches")
-        {
-            <select name="branch" class="form-select form-select-sm ms-2" style="max-width:220px" onchange="this.form.submit()" title="Phạm vi chi nhánh">
-                @foreach (var o in branchOptions) { <option value="@o.Value" selected="@o.Selected">@o.Text</option> }
-            </select>
-        }
-        else if (branchParam != null) { <input type="hidden" name="branch" value="@branchParam" /> }
-        @if (def.Id != "debts")
-        {
-            <span class="small text-muted ms-2">Từ</span><input type="date" name="from" value="@from.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
-            <span class="small text-muted">đến</span><input type="date" name="to" value="@to.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="max-width:150px" />
-            <button class="btn btn-sm btn-outline-secondary">Xem</button>
-        }
-        <div class="ms-auto d-flex gap-2">
-            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-branch="@branchParam" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="xlsx">@Icon("download") Excel</a>
-            <a class="btn btn-sm btn-outline-secondary" asp-route-id="@def.Id" asp-route-branch="@branchParam" asp-route-from="@from.ToString("yyyy-MM-dd")" asp-route-to="@to.ToString("yyyy-MM-dd")" asp-route-export="print" target="_blank">@Icon("print") In / PDF</a>
-        </div>
+        <partial name="_ReportScope" model="rp" />
+        @if (rp.Dated) { <button class="btn btn-sm btn-outline-secondary">Xem</button> }
+        <partial name="_ReportExport" />
     </form>
     <div class="small text-muted mb-2">@Model.Subtitle</div>
     @if (Model.Chart != null && Model.Chart.Count > 0)
     {
-        <div class="card mb-3"><div class="card-body"><partial name="_BarChart" model="@(new BarChartModel(Model.Chart, def.Id != "visits" && def.Id != "vaccines"))" /></div></div>
+        <div class="card mb-3"><div class="card-body"><partial name="_BarChart" model="@(new BarChartModel(Model.Chart, rp.ChartMoney))" /></div></div>
     }
 }
-<div class="@(print ? "" : "card")">
-    <div class="table-responsive">
-        <table class="table table-sm @(print ? "table-bordered" : "table-hover") mb-0" data-no-grid>
-            <thead><tr>@for (var c = 0; c < Model.Headers.Count; c++) { <th class="@(Model.NumericColumns.Contains(c) ? "text-end" : "")">@Model.Headers[c]</th> }</tr></thead>
-            <tbody>
-                @foreach (var row in Model.Rows)
-                {
-                    <tr>@for (var c = 0; c < row.Count; c++) { <td class="@(Model.NumericColumns.Contains(c) ? "text-end money" : "")">@Cell(row[c])</td> }</tr>
-                }
-                @if (Model.Rows.Count == 0) { <tr><td colspan="@Model.Headers.Count" class="text-muted p-3">Không có dữ liệu trong kỳ.</td></tr> }
-            </tbody>
-            @if (Model.Footer != null)
-            {
-                <tfoot><tr class="fw-bold">@for (var c = 0; c < Model.Footer.Count; c++) { <td class="@(Model.NumericColumns.Contains(c) ? "text-end money" : "")">@Cell(Model.Footer[c])</td> }</tr></tfoot>
-            }
-        </table>
-    </div>
-</div>
+<partial name="_ReportTable" model="Model" />

@@ -198,3 +198,27 @@ public class TranslationRow
     public string? Fallback { get; set; }
     public bool IsCustom { get; set; }
 }
+
+/// <summary>Phạm vi chi nhánh của báo cáo: BranchId null = toàn chuỗi</summary>
+public record ReportScope(int? BranchId, string Param, string? Name, List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Options, List<Branch> Branches);
+
+/// <summary>Báo cáo chuẩn (dựng sẵn trong phần mềm)</summary>
+/// <param name="Period">month = mặc định từ đầu tháng, year = từ đầu năm, next30 = 30 ngày tới, none = không theo kỳ</param>
+public record StdReport(string Id, string Name, string Icon, string Description, string Group, string Period = "month", bool ChartMoney = true);
+
+/// <summary>Trang kết quả báo cáo (chuẩn hoặc động): thông tin hiển thị thanh công cụ</summary>
+public class ReportPage
+{
+    public string Name { get; set; } = "";
+    public string Icon { get; set; } = "chart";
+    public bool Dated { get; set; } = true;
+    public bool BranchSelect { get; set; } = true;
+    public bool ChartMoney { get; set; } = true;
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+    public ReportScope? Scope { get; set; }
+    /// <summary>Tham số query giữ lại khi xuất Excel / in (ngoài from, to, branch)</summary>
+    public Dictionary<string, string?> Extra { get; set; } = new();
+    public string? Error { get; set; }
+    public string? Note { get; set; }
+}

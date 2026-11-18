@@ -563,3 +563,24 @@ fieldset:disabled .opt-card, fieldset:disabled .swatch { cursor: not-allowed; }
 .ms-dark { background: color-mix(in srgb, var(--accent) 14%, #0a1a1c); color: color-mix(in srgb, var(--accent) 50%, #fff); }
 .ms-light { background: #fff; color: var(--accent); }
 .ms-accent { background: var(--accent-dark); color: #fff; }
+
+/* ---------- Báo cáo chuẩn & báo cáo động ---------- */
+.report-group-title { display: flex; align-items: center; gap: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: .85rem; color: var(--accent-dark); margin: 4px 0 10px; }
+.report-group-title .ico { width: 18px; height: 18px; }
+.report-group-sub { font-weight: 600; color: #475569; margin-bottom: 8px; font-size: .9rem; }
+.report-table td { white-space: nowrap; }
+.report-table td:not(.money) { white-space: normal; min-width: 80px; }
+.sql-editor { font-family: ui-monospace, Consolas, "Cascadia Mono", monospace; font-size: .85rem; line-height: 1.5; tab-size: 4; background: #0f172a; color: #e2e8f0; border-color: #0f172a; }
+.sql-editor:focus { background: #0f172a; color: #f8fafc; }
+.dr-actions .btn .ico, .toolbar .btn .ico { width: 15px; height: 15px; }
+.dr-schema { position: sticky; top: 12px; }
+.dr-schema-list { max-height: calc(100vh - 230px); overflow: auto; font-size: .82rem; }
+.dr-obj { border-bottom: 1px solid #eef2f6; padding: 3px 0; }
+.dr-obj summary { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.dr-obj summary .badge { font-size: .62rem; font-weight: 500; min-width: 38px; }
+.dr-obj ul { list-style: none; padding: 0 0 4px 44px; margin: 0; }
+.dr-ins { background: none; border: 0; padding: 0; color: var(--accent-dark); text-align: left; cursor: pointer; }
+.dr-ins:hover { text-decoration: underline; }
+.dr-preview .card { border: 0; border-top: 1px solid #eef2f6; border-radius: 0; box-shadow: none; }
+.dr-preview .table-responsive { max-height: 460px; }
+@media print { .report-table td { white-space: normal; } }

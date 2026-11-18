@@ -42,6 +42,7 @@ public static class Perm
     public const string StockCost = "stock.cost";
     public const string Catalog = "catalog.manage";
     public const string Reports = "report.view";
+    public const string ReportDesign = "report.design";
     public const string Users = "admin.users";
     public const string System = "admin.system";
 
@@ -62,6 +63,7 @@ public static class Perm
         (StockCost, "Kho thuốc", "Xem giá vốn, lãi gộp"),
         (Catalog, "Danh mục", "Dịch vụ & bảng giá, loài – giống, chuồng"),
         (Reports, "Báo cáo", "Xem và xuất báo cáo doanh thu, hoạt động"),
+        (ReportDesign, "Báo cáo", "Thiết kế báo cáo động (câu lệnh SQL / View) – chỉ giao cho người quản trị dữ liệu"),
         (Users, "Quản trị", "Quản lý người dùng, vai trò, phân quyền"),
         (System, "Quản trị", "Thông tin phòng khám, nhật ký hệ thống")
     };
@@ -70,7 +72,7 @@ public static class Perm
     public static readonly Dictionary<string, string[]> Defaults = new()
     {
         [AppRoles.Admin] = All.Select(p => p.Code).ToArray(),
-        [AppRoles.Manager] = All.Select(p => p.Code).Where(c => c != Users && c != System).ToArray(),
+        [AppRoles.Manager] = All.Select(p => p.Code).Where(c => c != Users && c != System && c != ReportDesign).ToArray(),
         [AppRoles.Vet] = new[] { CustomerView, CustomerEdit, Appointment, VisitView, VisitExam, Vaccine, Admission, InvoiceView, StockView },
         [AppRoles.Receptionist] = new[] { CustomerView, CustomerEdit, Appointment, VisitView, Vaccine, Admission, InvoiceView },
         [AppRoles.Cashier] = new[] { CustomerView, CustomerEdit, VisitView, InvoiceView, InvoiceManage, StockView },
